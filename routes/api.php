@@ -5,6 +5,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -34,6 +35,9 @@ Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
 
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 
-Route::middleware('auth:sanctum')->get('/notifications', function () {
-    return Auth::user()->notifications;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 });
