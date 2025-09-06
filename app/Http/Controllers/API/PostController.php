@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Post;
+use App\Traits\ApiResponseTrait;
+use App\Http\Resources\PostResource;
 
 class PostController extends Controller
 {
+    use ApiResponseTrait;
     /**
      * Display a listing of the resource.
      */
@@ -17,12 +20,9 @@ class PostController extends Controller
         $posts = Post::with('user')
             ->withCount('comments')
             ->latest()
-            ->get();
+            ->paginate(15);
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $posts
-        ]);
+        return $this->paginatedResponse($posts, 'Posts retrieved successfully');
     }
 
 
@@ -40,7 +40,13 @@ class PostController extends Controller
 
         $post = $request->user()->posts()->create($validated);
 
-        return response()->json($post, 201);
+        // Load relationships and return resource
+        $post->load('user');
+
+        return $this->createdResponse(
+            new PostResource($post),
+            'Post created successfully'
+        );
     }
 
     /**
@@ -51,16 +57,13 @@ class PostController extends Controller
         $post = Post::with('user')->find($id);
 
         if (!$post) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Post not found',
-            ], 404);
+            return $this->notFoundResponse('Post not found');
         }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $post
-        ]);
+        return $this->successResponse(
+            new PostResource($post),
+            'Post retrieved successfully'
+        );
     }
 
 
@@ -73,15 +76,12 @@ class PostController extends Controller
         $post = Post::find($id);
 
         if (!$post) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Post not found',
-            ], 404);
+            return $this->notFoundResponse('Post not found');
         }
 
         // تحقق أن المستخدم صاحب المقال
         if ($request->user()->id !== $post->user_id) {
-            return response()->json(['error' => 'غير مصرح'], 403);
+            return $this->forbiddenResponse('You are not authorized to update this post');
         }
 
         $validated = $request->validate([
@@ -92,7 +92,13 @@ class PostController extends Controller
 
         $post->update($validated);
 
-        return response()->json($post);
+        // Load relationships and return resource
+        $post->load('user');
+
+        return $this->successResponse(
+            new PostResource($post),
+            'Post updated successfully'
+        );
     }
 
     /**
@@ -103,18 +109,15 @@ class PostController extends Controller
         $post = Post::find($id);
 
         if (!$post) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Post not found',
-            ], 404);
+            return $this->notFoundResponse('Post not found');
         }
 
         if ($request->user()->id !== $post->user_id) {
-            return response()->json(['error' => 'غير مصرح'], 403);
+            return $this->forbiddenResponse('You are not authorized to delete this post');
         }
 
         $post->delete();
 
-        return response()->json(['message' => 'Post has been deleted successfully']);
+        return $this->successResponse(null, 'Post deleted successfully');
     }
 }

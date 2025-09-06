@@ -7,9 +7,11 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Traits\ApiResponseTrait;
 
 class AuthController extends Controller
 {
+    use ApiResponseTrait;
     public function register(Request $request)
     {
         $request->validate([
@@ -26,15 +28,14 @@ class AuthController extends Controller
             'password' => bcrypt($request->password),
         ]);
 
-
         // إنشاء توكن للمستخدم الجديد
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
+        return $this->createdResponse([
             'user' => $user,
             'access_token' => $token,
             'token_type' => 'Bearer',
-        ], 201);
+        ], 'User registered successfully');
     }
 
 
@@ -48,22 +49,21 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Invalid credentials'],
-            ]);
+            return $this->unauthorizedResponse('Invalid credentials');
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
+        return $this->successResponse([
+            'user' => $user,
             'access_token' => $token,
             'token_type' => 'Bearer',
-        ]);
+        ], 'Login successful');
     }
 
     public function logout(Request $request)
     {
         $request->user()->tokens()->delete();
-        return response()->json(['message' => 'Logged out successfully']);
+        return $this->successResponse(null, 'Logged out successfully');
     }
 }

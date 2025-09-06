@@ -23,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // عرض عام (index/show) بدون تسجيل دخول
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
+Route::get('posts/user/{username}', [UserController::class, 'showByUsername']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/posts/{post}/comments', [CommentController::class, 'store']);

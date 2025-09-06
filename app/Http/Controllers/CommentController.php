@@ -8,23 +8,23 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Http\Resources\CommentResource;
 use App\Traits\MentionTrait;
+use App\Traits\ApiResponseTrait;
 
 class CommentController extends Controller
 {
-    use MentionTrait;
+    use MentionTrait, ApiResponseTrait;
     public function index($postId)
     {
-        $comments = Comment::where('post_id', $postId)->with('user', 'mentions')->get();
+        $comments = Comment::where('post_id', $postId)
+            ->with(['user', 'mentions'])
+            ->latest()
+            ->paginate(15);
 
         if ($comments->isEmpty()) {
-            return response()->json([
-                'status' => 'success',
-                'message' => 'No comments found for this post',
-                'data' => [],
-            ], 200);
+            return $this->successResponse([], 'No comments found for this post');
         }
 
-        return CommentResource::collection($comments);
+        return $this->paginatedResponse($comments, 'Comments retrieved successfully');
     }
 
     public function store(Request $request, $postId)
@@ -36,16 +36,19 @@ class CommentController extends Controller
 
         $comment = Comment::create([
             'body' => $request->body,
-            'user_id' => Auth::id(),  // استخدام Auth بدل auth()
+            'user_id' => Auth::id(),
             'post_id' => $postId,
         ]);
 
         $this->handleMentions($comment);
 
-        return new CommentResource(
-            $comment->load(['user', 'mentions'])
-        );
+        // Load relationships and return resource
+        $comment->load(['user', 'mentions']);
 
+        return $this->createdResponse(
+            new CommentResource($comment),
+            'Comment created successfully'
+        );
     }
 
     public function update(Request $request, $id)
@@ -53,12 +56,12 @@ class CommentController extends Controller
         $comment = Comment::find($id);
 
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return $this->notFoundResponse('Comment not found');
         }
 
         // تحقق إنو المستخدم الحالي هو صاحب التعليق
         if ($comment->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->forbiddenResponse('You are not authorized to update this comment');
         }
 
         $request->validate([
@@ -69,7 +72,14 @@ class CommentController extends Controller
             'body' => $request->body,
         ]);
 
-        return response()->json($comment);
+        // Load relationships and return resource
+        $comment->load(['user', 'mentions']);
+        
+
+        return $this->successResponse(
+            new CommentResource($comment),
+            'Comment updated successfully'
+        );
     }
 
     public function destroy($id)
@@ -77,16 +87,16 @@ class CommentController extends Controller
         $comment = Comment::find($id);
 
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return $this->notFoundResponse('Comment not found');
         }
 
         if ($comment->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->forbiddenResponse('You are not authorized to delete this comment');
         }
 
         $comment->delete();
 
-        return response()->json(['message' => 'Comment deleted successfully']);
+        return $this->successResponse(null, 'Comment deleted successfully');
     }
 
 

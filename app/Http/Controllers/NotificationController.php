@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Traits\ApiResponseTrait;
 
 class NotificationController extends Controller
 {
+    use ApiResponseTrait;
     // عرض كل الإشعارات للمستخدم
     public function index(Request $request)
     {
-        return response()->json([
-            'unread' => $request->user()->unreadNotifications,
-            'all' => $request->user()->notifications
-        ]);
+        $notifications = $request->user()->notifications()->paginate(15);
+        
+        return $this->paginatedResponse($notifications, 'Notifications retrieved successfully');
     }
 
     // تعليم إشعار واحد كمقروء
@@ -21,7 +22,7 @@ class NotificationController extends Controller
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
 
-        return response()->json(['message' => 'Notification marked as read']);
+        return $this->successResponse(null, 'Notification marked as read');
     }
 
     // تعليم كل الإشعارات كمقروءة
@@ -29,6 +30,6 @@ class NotificationController extends Controller
     {
         $request->user()->unreadNotifications->markAsRead();
 
-        return response()->json(['message' => 'All notifications marked as read']);
+        return $this->successResponse(null, 'All notifications marked as read');
     }
 }

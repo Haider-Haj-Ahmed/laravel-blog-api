@@ -5,19 +5,20 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class CommentResource extends JsonResource
+class PostResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
      *
      * @return array<string, mixed>
      */
-    // App\Http\Resources\CommentResource
     public function toArray($request)
     {
         return [
             'id' => $this->id,
+            'title' => $this->title,
             'body' => $this->body,
+            'is_published' => $this->is_published,
             'user' => $this->whenLoaded('user', function () {
                 return [
                     'id' => $this->user->id,
@@ -25,18 +26,9 @@ class CommentResource extends JsonResource
                     'name' => $this->user->name,
                 ];
             }),
-            'mentions' => $this->whenLoaded('mentions', function () {
-                return $this->mentions->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'username' => $user->username,
-                        'profile_url' => url("/api/users/{$user->username}")
-                    ];
-                });
-            }),
+            'comments_count' => $this->when(isset($this->comments_count), $this->comments_count),
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
         ];
     }
-
 }
