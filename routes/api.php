@@ -14,31 +14,24 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // كل عمليات الإنشاء والتعديل والحذف محمية
+    // Posts
     Route::post('/posts', [PostController::class, 'store']);
-    Route::put('/posts/{id}', [PostController::class, 'update']);
-    Route::delete('/posts/{id}', [PostController::class, 'destroy']);
-});
+    Route::put('/posts/{post}', [PostController::class, 'update']);
+    Route::delete('/posts/{post}', [PostController::class, 'destroy']);
 
-// عرض عام (index/show) بدون تسجيل دخول
-Route::get('/posts', [PostController::class, 'index']);
-Route::get('/posts/{id}', [PostController::class, 'show']);
-Route::get('posts/user/{username}', [UserController::class, 'showByUsername']);
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Comments
     Route::post('/posts/{post}/comments', [CommentController::class, 'store']);
-    Route::put('/comments/{id}', [CommentController::class, 'update']);
-    Route::delete('/comments/{id}', [CommentController::class, 'destroy']);
-});
+    Route::put('/comments/{comment}', [CommentController::class, 'update']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
-Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
-
-
-Route::get('/users/{username}', [UserController::class, 'showByUsername']);
-
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 });
+
+// Public routes
+Route::get('/posts', [PostController::class, 'index']);
+Route::get('/posts/{post}', [PostController::class, 'show']);
+Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
+Route::get('/users/{username}', [UserController::class, 'showByUsername']);
