@@ -95,25 +95,35 @@ php artisan serve
 
 ## 📬 Example API Endpoints
 
-```http
-# Register
-POST /api/register
+### Authentication
+| Method | Endpoint         | Description                |
+|--------|----------------|----------------------------|
+| POST   | `/api/register` | Register a new user        |
+| POST   | `/api/login`    | Login and get auth token   |
+| POST   | `/api/logout`   | Logout the authenticated user |
 
-# Login
-POST /api/login
+### Posts
+| Method | Endpoint        | Description               |
+|--------|----------------|---------------------------|
+| GET    | `/api/posts`    | List all posts            |
+| GET    | `/api/posts/{id}` | Get a single post       |
+| POST   | `/api/posts`    | Create a new post         |
+| PUT    | `/api/posts/{id}` | Update a post           |
+| DELETE | `/api/posts/{id}` | Delete a post           |
 
-# Get all posts
-GET /api/posts
+### Comments
+| Method | Endpoint                  | Description                |
+|--------|---------------------------|----------------------------|
+| POST   | `/api/posts/{id}/comments` | Add a comment to a post    |
+| GET    | `/api/posts/{id}/comments` | List comments for a post   |
+| GET    | `/api/comments/{id}` | Get a single comment         |
+| PUT    | `/api/comments/{id}` | Update a comment             |
+| DELETE | `/api/comments/{id}` | Delete a comment             |
 
-# Create a post
-POST /api/posts
-
-# Add a comment
-POST /api/posts/{id}/comments
-
-# Get notifications
-GET /api/notifications
-```
+### Mentions & Notifications
+- Mention users in comments using `@username`
+- Notifications are sent automatically and stored in database
+- Real-time broadcasting using Pusher
 
 ---
 
