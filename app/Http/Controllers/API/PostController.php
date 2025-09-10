@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePostRequest;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Post;
@@ -30,15 +31,12 @@ class PostController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StorePostRequest $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'body' => 'required|string',
-            'is_published' => 'boolean'
-        ]);
 
-        $post = $request->user()->posts()->create($validated);
+        $credentials = $request->validated();
+
+        $post = $request->user()->posts()->create($credentials);
 
         // Load relationships and return resource
         $post->load('user');

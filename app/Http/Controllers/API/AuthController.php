@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Traits\ApiResponseTrait;
@@ -12,20 +14,15 @@ use App\Traits\ApiResponseTrait;
 class AuthController extends Controller
 {
     use ApiResponseTrait;
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users',
-            'username' => 'required|string|max:255|unique:users,username',
-            'password' => 'required|confirmed|min:6',
-        ]);
+        $credentials = $request->validated();
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'username' => $request->username,
-            'password' => bcrypt($request->password),
+            'name' => $credentials['name'],
+            'email' => $credentials['email'],
+            'username' => $credentials['username'],
+            'password' => bcrypt($credentials['password']),
         ]);
 
         // إنشاء توكن للمستخدم الجديد
@@ -39,16 +36,13 @@ class AuthController extends Controller
     }
 
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+        $credentials = $request->validated();
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return $this->unauthorizedResponse('Invalid credentials');
         }
 

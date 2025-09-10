@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCommentRequest;
 use Illuminate\Http\Request;
 use App\Models\Comment;
 use Illuminate\Support\Facades\Auth;
@@ -27,12 +28,9 @@ class CommentController extends Controller
         return $this->paginatedResponse($comments, 'Comments retrieved successfully');
     }
 
-    public function store(Request $request, $postId)
+    public function store(StoreCommentRequest $request, $postId)
     {
-        $request->validate([
-            'body' => 'required|string',
-            'post_id' => 'required|exists:posts,id',
-        ]);
+        $request->validated();
 
         $comment = Comment::create([
             'body' => $request->body,
@@ -74,7 +72,6 @@ class CommentController extends Controller
 
         // Load relationships and return resource
         $comment->load(['user', 'mentions']);
-        
 
         return $this->successResponse(
             new CommentResource($comment),
