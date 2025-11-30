@@ -6,12 +6,14 @@ use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\NotificationController;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\API\OtpController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/otp/verify', [OtpController::class, 'verify']);
+Route::post('/otp/resend', [OtpController::class, 'resend']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'verified.otp'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Posts

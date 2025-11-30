@@ -10,6 +10,10 @@ use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Traits\ApiResponseTrait;
+use App\Models\Otp;
+use Carbon\Carbon;
+use App\Notifications\OtpNotification;
+use App\Http\Controllers\API\OtpController;
 
 class AuthController extends Controller
 {
@@ -25,14 +29,47 @@ class AuthController extends Controller
             'password' => bcrypt($credentials['password']),
         ]);
 
-        // إنشاء توكن للمستخدم الجديد
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // create OTP
+        $plain = random_int(100000, 999999);
+        $hashed = Hash::make((string) $plain);
+        $expiresAt = Carbon::now()->addMinutes(10);
 
+        Otp::create([
+            'user_id' => $user->id,
+            'code' => $hashed,
+            'channel' => $request->get('channel', 'email'),
+            'expires_at' => $expiresAt,
+        ]);
+
+        // send notification
+        $user->notify(new OtpNotification((string) $plain, $request->get('channel', 'email')));
+
+        // If an OTP code was provided during registration, attempt to verify it immediately
+        if ($request->filled('code')) {
+            // Build a request to pass to the OtpController verify method
+            $verifyRequest = new Request([
+                'user_id' => $user->id,
+                'code' => $request->get('code'),
+                'create_token' => true,
+            ]);
+
+            $otpController = app(OtpController::class);
+            $verifyResponse = $otpController->verify($verifyRequest);
+
+            // If OTP verification succeeded, return whatever the verification response returned
+            if ($verifyResponse->getStatusCode() === 200) {
+                return $verifyResponse;
+            }
+
+            // If verification failed, return the verification response
+            return $verifyResponse;
+        }
+
+        // Otherwise, don't create an auth token until the user verifies via the OTP endpoint
         return $this->createdResponse([
             'user' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ], 'User registered successfully');
+            'user_id' => $user->id,
+        ], 'User registered successfully. OTP was sent; verify with /api/otp/verify to get an auth token.');
     }
 
 
