@@ -1,0 +1,488 @@
+{
+  "info": {
+    "_postman_id": "blog-api-likes-collection",
+    "name": "Blog REST API - Likes Feature",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{user1_name}}\",\n  \"email\": \"{{user1_email}}\",\n  \"password\": \"{{user1_password}}\",\n  \"password_confirmation\": \"{{user1_password}}\",\n  \"username\": \"{{user1_username}}\",\n  \"phone\": \"{{user1_phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/register",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register User 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{user2_name}}\",\n  \"email\": \"{{user2_email}}\",\n  \"password\": \"{{user2_password}}\",\n  \"password_confirmation\": \"{{user2_password}}\",\n  \"username\": \"{{user2_username}}\",\n  \"phone\": \"{{user2_phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/register",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user1_token', response.data.token);",
+                  "    console.log('User 1 Token Saved:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user1_email}}\",\n  \"password\": \"{{user1_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/login",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user2_token', response.data.token);",
+                  "    console.log('User 2 Token Saved:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user2_email}}\",\n  \"password\": \"{{user2_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/login",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify OTP User 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user1_token', response.data.access_token);",
+                  "    console.log('User 1 Token Saved:', response.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"code\": \"{{user1_otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/otp/verify",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "otp",
+                "verify"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify OTP User 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('user2_token', response.data.access_token);",
+                  "    console.log('User 2 Token Saved:', response.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2,\n  \"code\": \"{{user2_otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/otp/verify",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "otp",
+                "verify"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "Create Post (User 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('post_id', response.data.id);",
+                  "    console.log('Post ID Saved:', response.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{post_title}}\",\n  \"body\": \"{{post_body}}\",\n  \"is_published\": true\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/posts",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Posts (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/posts",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Posts (User 1 Authenticated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Post (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Post (User 1 Authenticated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Likes Feature",
+      "item": [
+        {
+          "name": "Like Post (User 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}/toggle-like",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}",
+                "toggle-like"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unlike Post (User 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}/toggle-like",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}",
+                "toggle-like"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Like Post (User 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user2_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}/toggle-like",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}",
+                "toggle-like"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Post After Likes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Tests",
+      "item": [
+        {
+          "name": "Like Non-existent Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/posts/999/toggle-like",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "999",
+                "toggle-like"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Like Without Authentication",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/posts/{{post_id}}/toggle-like",
+              "host": [
+                "{{api_url}}"
+              ],
+              "path": [
+                "posts",
+                "{{post_id}}",
+                "toggle-like"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

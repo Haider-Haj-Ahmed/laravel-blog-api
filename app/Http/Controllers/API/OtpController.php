@@ -59,15 +59,14 @@ class OtpController extends Controller
 
         Otp::where('user_id', $user->id)->delete();
 
-        // Optionally generate a token for the user if requested (e.g., called from register flow)
-        $data = ['user' => $user];
-        if ($request->boolean('create_token')) {
-            $token = $user->createToken('auth_token')->plainTextToken;
-            $data['access_token'] = $token;
-            $data['token_type'] = 'Bearer';
-        }
+        // Generate authentication token after successful OTP verification
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        return $this->successResponse($data, 'OTP verified successfully');
+        return $this->successResponse([
+            'user' => $user,
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ], 'OTP verified successfully. You are now authenticated.');
     }
 
     // POST /api/otp/resend

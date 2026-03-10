@@ -7,6 +7,7 @@ use App\Http\Requests\StorePostRequest;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Post;
+use App\Models\Like;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 
@@ -20,10 +21,14 @@ class PostController extends Controller
     {
         $posts = Post::with('user')
             ->withCount('comments')
+            ->withCount('likes')
             ->latest()
             ->paginate(15);
 
-        return $this->paginatedResponse($posts, 'Posts retrieved successfully');
+        return $this->paginatedResponse(
+            PostResource::collection($posts),
+            'Posts retrieved successfully'
+        );
     }
 
 
@@ -38,8 +43,9 @@ class PostController extends Controller
 
         $post = $request->user()->posts()->create($credentials);
 
-        // Load relationships and return resource
+        // Load relationships and counts for consistency
         $post->load('user');
+        $post->loadCount(['comments', 'likes']);
 
         return $this->createdResponse(
             new PostResource($post),
@@ -52,7 +58,10 @@ class PostController extends Controller
      */
     public function show($id)
     {
-        $post = Post::with('user')->find($id);
+        $post = Post::with('user')
+            ->withCount('comments')
+            ->withCount('likes')
+            ->find($id);
 
         if (!$post) {
             return $this->notFoundResponse('Post not found');
@@ -90,8 +99,9 @@ class PostController extends Controller
 
         $post->update($validated);
 
-        // Load relationships and return resource
+        // Load relationships and counts for consistency
         $post->load('user');
+        $post->loadCount(['comments', 'likes']);
 
         return $this->successResponse(
             new PostResource($post),
@@ -117,5 +127,42 @@ class PostController extends Controller
         $post->delete();
 
         return $this->successResponse(null, 'Post deleted successfully');
+    }
+
+    /**
+     * Toggle like on a post (Instagram-style)
+     */
+    public function toggleLike($postId)
+    {
+        $post = Post::find($postId);
+        
+        if (!$post) {
+            return $this->notFoundResponse('Post not found');
+        }
+
+        $user = request()->user();
+        
+        $like = Like::where('user_id', $user->id)
+            ->where('post_id', $post->id)
+            ->first();
+
+        if ($like) {
+            $like->delete();
+            $isLiked = false;
+        } else {
+            Like::create([
+                'user_id' => $user->id,
+                'post_id' => $post->id,
+            ]);
+            $isLiked = true;
+        }
+
+        // Return updated post with like count
+        $post->loadCount('likes');
+        
+        return $this->successResponse([
+            'is_liked' => $isLiked,
+            'likes_count' => $post->likes_count,
+        ], $isLiked ? 'Post liked' : 'Post unliked');
     }
 }
