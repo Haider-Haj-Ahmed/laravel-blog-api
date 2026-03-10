@@ -50,7 +50,6 @@ class AuthController extends Controller
             $verifyRequest = new Request([
                 'user_id' => $user->id,
                 'code' => $request->get('code'),
-                'create_token' => true,
             ]);
 
             $otpController = app(OtpController::class);
