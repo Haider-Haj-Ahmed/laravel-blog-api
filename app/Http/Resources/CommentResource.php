@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,13 +19,10 @@ class CommentResource extends JsonResource
         return [
             'id' => $this->id,
             'body' => $this->body,
-            'user' => $this->whenLoaded('user', value: function () {
-                return [
-                    'id' => $this->user->id,
-                    'username' => $this->user->username,
-                    'name' => $this->user->name,
-                ];
-            }),
+            'code'=>$this->code,
+            'parent_id'=>$this->parent_id,
+            'user_id' =>$this->user_id,
+            'user_name'=>User::where('id',$this->user_id)->value('username'), 
             'mentions' => $this->whenLoaded('mentions', function () {
                 return $this->mentions->map(function ($user) {
                     return [

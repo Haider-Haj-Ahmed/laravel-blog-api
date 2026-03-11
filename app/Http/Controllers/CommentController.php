@@ -8,6 +8,7 @@ use App\Models\Comment;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Http\Resources\CommentResource;
+use App\Jobs\AnalyzeCommentCode;
 use App\Traits\MentionTrait;
 use App\Traits\ApiResponseTrait;
 
@@ -28,23 +29,27 @@ class CommentController extends Controller
         return $this->paginatedResponse($comments, 'Comments retrieved successfully');
     }
 
-    public function store(StoreCommentRequest $request, $postId)
+    public function store(StoreCommentRequest $request)
     {
-        $request->validated();
+        $atts=$request->validated();
 
         $comment = Comment::create([
-            'body' => $request->body,
-            'user_id' => Auth::id(),
-            'post_id' => $postId,
+            'body' => $atts->body,
+            'user_id' => $request->user()->id,
+            'post_id' => $atts->post_id,
+            'code' => $atts->code ?? null,
+            'parent_id' => $atts->parent_id ?? null,
         ]);
 
         $this->handleMentions($comment);
-
+        if(isset($atts->code)){
+            AnalyzeCommentCode::dispatch($comment);
+        }
         // Load relationships and return resource
         $comment->load(['user', 'mentions']);
 
         return $this->createdResponse(
-            new CommentResource($comment),
+            CommentResource::make($comment),
             'Comment created successfully'
         );
     }

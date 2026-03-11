@@ -25,7 +25,7 @@ Route::middleware(['auth:sanctum', 'verified.otp'])->group(function () {
     Route::post('/posts/{post}/toggle-like', [PostController::class, 'toggleLike']);
 
     // Comments
-    Route::post('/posts/{post}/comments', [CommentController::class, 'store']);
+    Route::post('/comments', [CommentController::class, 'store']);
     Route::put('/comments/{comment}', [CommentController::class, 'update']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
@@ -40,3 +40,6 @@ Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{post}', [PostController::class, 'show']);
 Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
+
+// Code analysis route
+Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
