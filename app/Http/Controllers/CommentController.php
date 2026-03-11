@@ -11,6 +11,7 @@ use App\Http\Resources\CommentResource;
 use App\Jobs\AnalyzeCommentCode;
 use App\Traits\MentionTrait;
 use App\Traits\ApiResponseTrait;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CommentController extends Controller
@@ -107,6 +108,56 @@ class CommentController extends Controller
             new CommentResource($comment),
             'Comment updated successfully'
         );
+    }
+    public function like(Request $request,$id){
+        $comment=Comment::find($id);
+        if(!$comment){
+            return response()->json(['message'=>'Comment not found'],404);
+        }
+        $statusL=$comment->likes()->where('user_id', $request->user()->id)->exists();
+        $statusD=$comment->dislikes()->where('user_id', $request->user()->id)->exists();
+        if(!$statusL){
+            if(!$statusD){
+                $comment->likes()->attach($request->user()->id,['is_like'=>true]);
+                $comment->likes++;
+                $comment->save();
+            }else{
+                DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => true]);
+                $comment->dislikes--;
+                $comment->likes++;
+                $comment->save();
+            }
+        }else{
+            $comment->likes()->detach($request->user()->id);
+            $comment->likes--;
+            $comment->save();
+        }
+        return response()->json(['message'=>'Like status updated','likes'=>$comment->likes,'dislikes'=>$comment->dislikes],200);
+    }
+    public function dislike(Request $request,$id){
+        $comment=Comment::find($id);
+        if(!$comment){
+            return response()->json(['message'=>'Comment not found'],404);
+        }
+        $statusL=$comment->likes()->where('user_id', $request->user()->id)->exists();
+        $statusD=$comment->dislikes()->where('user_id', $request->user()->id)->exists();
+        if(!$statusD){
+            if(!$statusL){
+                $comment->dislikes()->attach($request->user()->id,['is_like'=>false]);
+                $comment->dislikes++;
+                $comment->save();
+            }else{
+                DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => false]);
+                $comment->likes--;
+                $comment->dislikes++;
+                $comment->save();
+            }
+        }else{
+            $comment->dislikes()->detach($request->user()->id);
+            $comment->dislikes--;
+            $comment->save();
+        }
+        return response()->json(['message'=>'Dislike status updated','likes'=>$comment->likes,'dislikes'=>$comment->dislikes],200);
     }
 
     // public function destroy($id)

@@ -28,6 +28,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/comments', [CommentController::class, 'store']);
     Route::get('/comments/{comment}', [CommentController::class, 'show']);
     Route::post('/comments/{comment}', [CommentController::class, 'update']);
+    Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
+    Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Notifications

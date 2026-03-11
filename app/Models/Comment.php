@@ -31,4 +31,11 @@ class Comment extends Model
     {
         return $this->hasMany(Comment::class, 'parent_id');
     }
+    public function likes()
+    {
+        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like',true)->withPivot('is_like')->withTimestamps();
+    }
+    public function dislikes(){
+        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like', false)->withPivot('is_like')->withTimestamps();
+    }
 }
