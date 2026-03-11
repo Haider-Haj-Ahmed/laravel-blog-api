@@ -20,6 +20,7 @@ class CommentResource extends JsonResource
             'id' => $this->id,
             'body' => $this->body,
             'code'=>$this->code,
+            'code_label'=>$this->code_label,
             'parent_id'=>$this->parent_id,
             'user_id' =>$this->user_id,
             'user_name'=>User::where('id',$this->user_id)->value('username'), 

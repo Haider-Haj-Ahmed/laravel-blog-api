@@ -15,10 +15,8 @@ class AnalyzeCommentCode implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    public Comment $comment;
-    public function __construct($comment)
+    public function __construct(public Comment $comment)
     {
-        $this->$comment=$comment;
     }
 
     /**
@@ -42,8 +40,7 @@ class AnalyzeCommentCode implements ShouldQueue
             $label = 'UNKNOWN';
         }
         Log::error($label);
-        $this->comment->update([
-            'code_label' => $label
-        ]);
+        $this->comment->code_label = $label;
+        $this->comment->save();
     }
 }
