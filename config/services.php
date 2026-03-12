@@ -34,5 +34,16 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'deepseek' => [
+        'key' => env('DEEPSEEK_API_KEY'),
+    ],
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
+    'gemini2' => [
+        'key' => env('SECOND_GEMINI_API_KEY'),
+    ],
+
+
 
 ];

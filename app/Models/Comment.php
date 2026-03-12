@@ -7,8 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Comment extends Model
 {
     use HasFactory;
-    protected $fillable = ['body', 'user_id', 'post_id'];
-
+    protected $guarded = [];
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -23,6 +22,20 @@ class Comment extends Model
     {
         return $this->belongsToMany(User::class, 'comment_user_mentions');
     }
+    public function parent()
+    {
+        return $this->belongsTo(Comment::class, 'parent_id');
+    }
 
-
+    public function children()
+    {
+        return $this->hasMany(Comment::class, 'parent_id');
+    }
+    public function likes()
+    {
+        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like',true)->withPivot('is_like')->withTimestamps();
+    }
+    public function dislikes(){
+        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like', false)->withPivot('is_like')->withTimestamps();
+    }
 }
