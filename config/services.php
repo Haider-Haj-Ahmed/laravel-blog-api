@@ -40,6 +40,9 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
     ],
+    'gemini2' => [
+        'key' => env('SECOND_GEMINI_API_KEY'),
+    ],
 
 
 

@@ -50,3 +50,5 @@ Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
 //Compiler
 Route::post('/compile',[CompilerController::class,'run']);
+//UML Generator
+Route::post('/generate-uml',[App\Http\Controllers\API\UMLController::class,'generate']);
