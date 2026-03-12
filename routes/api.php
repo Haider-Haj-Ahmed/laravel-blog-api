@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\CompilerController;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
@@ -30,7 +31,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/comments/{comment}', [CommentController::class, 'update']);
     Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
     Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike']);
-    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+    Route::get('/comments/{comment}/children',[CommentController::class,'getChildren']);
+    // Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -46,3 +48,5 @@ Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 
 // Code analysis route
 Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
+//Compiler
+Route::post('/compile',[CompilerController::class,'run']);

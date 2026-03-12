@@ -59,9 +59,9 @@ class CommentController extends Controller
         ]);
 
         $this->handleMentions($comment);
-        if(isset($atts['code'])){
-            AnalyzeCommentCode::dispatch($comment);
-        }
+        // if(isset($atts['code'])){
+        //     AnalyzeCommentCode::dispatch($comment);
+        // }
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
 
@@ -158,6 +158,28 @@ class CommentController extends Controller
             $comment->save();
         }
         return response()->json(['message'=>'Dislike status updated','likes'=>$comment->likes,'dislikes'=>$comment->dislikes],200);
+    }
+
+    public function getChildren(Request $request,$id){
+        $comment=Comment::find($id);
+        if(!$comment){
+            return response()->json(['message'=>'Comment Not Found'],404);
+        }
+        $perPage = 3;
+        $page = $request->get('page', 1);
+        if($page < 1){
+            $page=1;
+        }
+        $allCount=$comment->children()->count();
+        $allchildren=[];
+        for ($i=$page;$i>0;$i--){
+            $children = $comment->children()
+            ->latest()
+            ->paginate($perPage, ['*'], 'page', $i);
+            $allchildren=array_merge($allchildren,$children->items());
+        }
+        
+        return response()->json(['data'=>$allchildren,'message'=>'Child comments retrieved successfully','num of total pages'=>ceil($allCount/$perPage)],200);
     }
 
     // public function destroy($id)
