@@ -8,6 +8,8 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\API\OtpController;
+use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\BlogController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -32,12 +34,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
     Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike']);
     Route::get('/comments/{comment}/children',[CommentController::class,'getChildren']);
+    Route::post('/comments/{comment}/highlight', [CommentController::class, 'highlight']);
     // Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+
+    // Blogs
+    Route::apiResource('/blogs', BlogController::class);
+
+    // Profile
+    Route::put('/profile', [ProfileController::class, 'update']);
 });
 
 // Public routes
@@ -45,6 +54,11 @@ Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{post}', [PostController::class, 'show']);
 Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
+Route::get('/users/{username}/profile', [ProfileController::class, 'show']);
+Route::get('/users/{username}/posts', [ProfileController::class, 'posts']);
+Route::get('/users/{username}/blogs', [ProfileController::class, 'blogs']);
+Route::get('/blogs', [BlogController::class, 'index']);
+Route::get('/blogs/{blog}', [BlogController::class, 'show']);
 
 // Code analysis route
 Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);

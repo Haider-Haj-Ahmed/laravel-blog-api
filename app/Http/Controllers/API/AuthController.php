@@ -14,6 +14,7 @@ use App\Models\Otp;
 use Carbon\Carbon;
 use App\Notifications\OtpNotification;
 use App\Http\Controllers\API\OtpController;
+use App\Models\Profile;
 
 class AuthController extends Controller
 {
@@ -27,6 +28,16 @@ class AuthController extends Controller
             'email' => $credentials['email'],
             'username' => $credentials['username'],
             'password' => bcrypt($credentials['password']),
+        ]);
+
+        // Create a basic profile for the user
+        Profile::create([
+            'user_id' => $user->id,
+            'ranking_points' => 0,
+            'bio' => $credentials['bio'] ?? null,
+            'avatar' => $credentials['avatar'] ?? null,
+            'website' => $credentials['website'] ?? null,
+            'location' => $credentials['location'] ?? null,
         ]);
 
         // create OTP
@@ -80,6 +91,14 @@ class AuthController extends Controller
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return $this->unauthorizedResponse('Invalid credentials');
+        }
+
+        // Ensure user has a profile (for legacy users)
+        if (!$user->profile) {
+            Profile::create([
+                'user_id' => $user->id,
+                'ranking_points' => 0,
+            ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
