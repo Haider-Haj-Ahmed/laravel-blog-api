@@ -24,6 +24,8 @@ class PostResource extends JsonResource
                     'id' => $this->user->id,
                     'username' => $this->user->username,
                     'name' => $this->user->name,
+                    'avatar_url' => $this->user->profile?->avatar ? asset("storage/avatars/{$this->user->profile->avatar}") : asset('images/default-avatar.png'),
+                    'badge' => $this->user->profile?->badge ?? 'junior',
                 ];
             }),
             'comments_count' => $this->when(isset($this->comments_count), $this->comments_count),
