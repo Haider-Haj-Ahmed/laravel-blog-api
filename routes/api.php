@@ -8,6 +8,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\API\OtpController;
+use App\Http\Controllers\API\RoadMapController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -46,9 +47,12 @@ Route::get('/posts/{post}', [PostController::class, 'show']);
 Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 
-// Code analysis route
+// Code analysis route for testing only
 Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
 //Compiler
 Route::post('/compile',[CompilerController::class,'run']);
 //UML Generator
 Route::post('/generate-uml',[App\Http\Controllers\API\UMLController::class,'generate']);
+//Road Map Routes
+Route::get('/roadmaps',[RoadMapController::class,'index']);
+Route::get('/roadmaps/{id}',[RoadMapController::class,'show']);

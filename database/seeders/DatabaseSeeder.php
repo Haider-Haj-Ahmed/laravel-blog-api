@@ -21,5 +21,6 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create([]);
         // Post::factory(20)->create();
         // Comment::factory(50)->create();
+        $this->call(RoadMapSeeder::class);
     }
 }
