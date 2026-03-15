@@ -13,6 +13,9 @@ use App\Traits\MentionTrait;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Events\CommentLiked;
+use App\Events\CommentDisliked;
+use App\Events\CommentHighlighted;
 
 class CommentController extends Controller
 {
@@ -121,11 +124,13 @@ class CommentController extends Controller
                 $comment->likes()->attach($request->user()->id,['is_like'=>true]);
                 $comment->likes++;
                 $comment->save();
+                CommentLiked::dispatch($comment);
             }else{
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => true]);
                 $comment->dislikes--;
                 $comment->likes++;
                 $comment->save();
+                CommentLiked::dispatch($comment);
             }
         }else{
             $comment->likes()->detach($request->user()->id);
@@ -146,11 +151,13 @@ class CommentController extends Controller
                 $comment->dislikes()->attach($request->user()->id,['is_like'=>false]);
                 $comment->dislikes++;
                 $comment->save();
+                CommentDisliked::dispatch($comment);
             }else{
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => false]);
                 $comment->likes--;
                 $comment->dislikes++;
                 $comment->save();
+                CommentDisliked::dispatch($comment);
             }
         }else{
             $comment->dislikes()->detach($request->user()->id);
@@ -180,6 +187,25 @@ class CommentController extends Controller
         }
         
         return response()->json(['data'=>$allchildren,'message'=>'Child comments retrieved successfully','num of total pages'=>ceil($allCount/$perPage)],200);
+    }
+
+    public function highlight(Request $request, $id)
+    {
+        $comment = Comment::find($id);
+
+        if (!$comment) {
+            return $this->notFoundResponse('Comment not found');
+        }
+
+        // Check if the authenticated user is the author of the post
+        if ($comment->post->user_id !== $request->user()->id) {
+            return $this->forbiddenResponse('You are not authorized to highlight this comment');
+        }
+
+        // Dispatch the highlight event
+        CommentHighlighted::dispatch($comment);
+
+        return $this->successResponse(null, 'Comment highlighted successfully');
     }
 
     // public function destroy($id)

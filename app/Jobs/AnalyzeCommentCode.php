@@ -7,6 +7,7 @@ use App\Services\GeminiService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use App\Events\CommentVerified;
 
 class AnalyzeCommentCode implements ShouldQueue
 {
@@ -42,5 +43,9 @@ class AnalyzeCommentCode implements ShouldQueue
         Log::error($label);
         $this->comment->code_label = $label;
         $this->comment->save();
+
+        if ($label === 'SAFE') {
+            CommentVerified::dispatch($this->comment);
+        }
     }
 }
