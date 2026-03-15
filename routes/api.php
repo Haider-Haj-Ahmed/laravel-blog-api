@@ -8,6 +8,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\API\OtpController;
+use App\Http\Controllers\API\RoadMapController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\BlogController;
 
@@ -60,9 +61,12 @@ Route::get('/users/{username}/blogs', [ProfileController::class, 'blogs']);
 Route::get('/blogs', [BlogController::class, 'index']);
 Route::get('/blogs/{blog}', [BlogController::class, 'show']);
 
-// Code analysis route
+// Code analysis route for testing only
 Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
 //Compiler
 Route::post('/compile',[CompilerController::class,'run']);
 //UML Generator
 Route::post('/generate-uml',[App\Http\Controllers\API\UMLController::class,'generate']);
+//Road Map Routes
+Route::get('/roadmaps',[RoadMapController::class,'index']);
+Route::get('/roadmaps/{id}',[RoadMapController::class,'show']);
