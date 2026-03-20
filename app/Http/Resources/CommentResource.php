@@ -16,9 +16,13 @@ class CommentResource extends JsonResource
     // App\Http\Resources\CommentResource
     public function toArray($request)
     {
+        $hasCode = !empty($this->code);
+        $type = $hasCode ? 'text_code' : 'text';
+
         return [
             'id' => $this->id,
             'body' => $this->body,
+            'type' => $type,
             'code'=>$this->code,
             'code_label'=>$this->code_label,
             'parent_id'=>$this->parent_id,

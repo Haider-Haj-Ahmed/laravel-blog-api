@@ -31,7 +31,10 @@ class CommentController extends Controller
             return $this->successResponse([], 'No comments found for this post');
         }
 
-        return $this->paginatedResponse($comments, 'Comments retrieved successfully');
+        return $this->paginatedResponse(
+            CommentResource::collection($comments),
+            'Comments retrieved successfully'
+        );
     }
     public function show($id)
     {
