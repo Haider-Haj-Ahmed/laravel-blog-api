@@ -10,6 +10,7 @@ use App\Models\Post;
 use App\Models\Like;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
+use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
@@ -40,6 +41,15 @@ class PostController extends Controller
     {
 
         $credentials = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            $photoFile = $request->file('photo');
+            $photoName = time() . '_' . $request->user()->id . '.' . $photoFile->getClientOriginalExtension();
+            $photoFile->storeAs('post_photos', $photoName, 'public');
+            $credentials['photo'] = $photoName;
+        } else {
+            unset($credentials['photo']);
+        }
 
         $post = $request->user()->posts()->create($credentials);
 
@@ -92,10 +102,26 @@ class PostController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'string|max:255',
-            'body' => 'string',
-            'is_published' => 'boolean'
+            'title' => 'sometimes|string|max:255',
+            'body' => 'sometimes|string',
+            'code' => 'sometimes|nullable|string',
+            'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+            'is_published' => 'sometimes|boolean'
         ]);
+
+        if ($request->hasFile('photo')) {
+            // Delete old photo if replacing it
+            if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
+                Storage::disk('public')->delete("post_photos/{$post->photo}");
+            }
+
+            $photoFile = $request->file('photo');
+            $photoName = time() . '_' . $request->user()->id . '.' . $photoFile->getClientOriginalExtension();
+            $photoFile->storeAs('post_photos', $photoName, 'public');
+            $validated['photo'] = $photoName;
+        } else {
+            unset($validated['photo']);
+        }
 
         $post->update($validated);
 
@@ -122,6 +148,11 @@ class PostController extends Controller
 
         if ($request->user()->id !== $post->user_id) {
             return $this->forbiddenResponse('You are not authorized to delete this post');
+        }
+
+        // Delete stored photo if present
+        if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
+            Storage::disk('public')->delete("post_photos/{$post->photo}");
         }
 
         $post->delete();
