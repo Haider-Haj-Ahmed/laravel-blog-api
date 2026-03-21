@@ -1,145 +1,217 @@
+# TeckTalk — IT Blog API
 
-# 📝 Blog API (Laravel + Sanctum)
+## Overview
 
-## 📌 Overview
+**TeckTalk** is an IT-focused blog platform. This repository is the **Laravel REST API** that powers the **TeckTalk mobile app** and works alongside a **web admin dashboard** for operations and content management.
 
-**Blog API** is a training project built with **Laravel 12** and **Sanctum Authentication**.
-It provides a system to manage blog posts and comments with advanced features like **user mentions in comments** and **notifications**.
-The project is designed as a solid foundation for larger Laravel-based applications, with testing support using **Factories** and **Seeders**.
-
----
-
-## ⚙️ Features
-
-* 🔐 **Authentication** using Laravel Sanctum
-* 📝 **Posts**: Create, Read, Update, Delete
-* 💬 **Comments**: Add comments on posts
-* 📣 **Mentions**: Mention users in comments (`@username`) with automatic notification
-* 🔔 **Notifications**: Laravel Notifications system with database storage + broadcasting (Pusher)
-* 🏭 **Factories**: Generate test data (Users, Posts, Comments)
-* 🧪 **Testing Ready**: Test with Postman or Laravel Tinker
+- **Mobile app**: consumes JSON under `/api/*` (Bearer token via Laravel Sanctum).
+- **Dashboard**: [Filament](https://filamentphp.com/) v4 admin panel at **`/admin`** (session auth, `web` guard) — currently includes **Users** and **Road maps** resources.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech stack
 
-* **Framework**: Laravel 12
-* **Authentication**: Sanctum
-* **Database**: MySQL
-* **Notifications**: Database + Broadcasting (Pusher)
-* **Testing**: Postman, Laravel Tinker
-* **Data Seeding**: Factories & Seeders
-
----
-
-## 📂 Database Schema (Relations)
-
-* **User**
-
-  * hasMany → Posts
-  * hasMany → Comments
-  * hasMany → Notifications
-
-* **Post**
-
-  * belongsTo → User
-  * hasMany → Comments
-
-* **Comment**
-
-  * belongsTo → User
-  * belongsTo → Post
-  * may contain Mentions
-
-* **Notification**
-
-  * belongsTo → User (receiver)
-
-* **Mention**
-
-  * belongsTo → Comment
-  * belongsTo → User (mentioned user)
+| Layer | Technology |
+|--------|------------|
+| Framework | Laravel **12** (PHP **8.2+**) |
+| API auth | Laravel **Sanctum** |
+| Admin UI | **Filament** 4.x |
+| DB | MySQL (typical; configure in `.env`) |
+| Realtime | Pusher (notifications / broadcasting where configured) |
 
 ---
 
-## 🚀 Installation
+## Features (as implemented)
+
+- **Auth**: register, login, logout; **OTP** verify/resend for onboarding flows.
+- **Feed posts**: CRUD (create/update/delete require auth); public index/show; optional **code** + **photo**; response includes a computed **`type`** for UI widgets (`text`, `text_photo`, `text_code`, `text_code_photo`).
+- **Post likes**: toggle like per user (`likes` table).
+- **Comments** on posts: create/update; nested replies via `parent_id`; like/dislike; optional **code** block; **`type`** in JSON (`text` or `text_code`); **@mentions** in comment body with notifications.
+- **Blogs**: long-form articles (separate from feed posts); publish flag; create restricted by profile **badge** (expert) via policy.
+- **Profiles**: per-user profile (bio, avatar, cover, links, ranking/badge); public profile by username; authenticated profile update (multipart uploads).
+- **Notifications**: list, mark read, mark all read (database notifications).
+- **Extras** (public or utility): code compile proxy, UML generation, code analysis (testing), **road maps** API, Filament-managed road maps in admin.
+
+---
+
+## Post & comment `type` (for the mobile UI)
+
+Responses use a **`type`** string so the app can pick the right component.
+
+**Posts** (`PostResource`): derived from stored `code` and `photo` filename.
+
+| `type` | Meaning |
+|--------|---------|
+| `text` | Body only |
+| `text_photo` | Body + image (`photo_url`) |
+| `text_code` | Body + `code` |
+| `text_code_photo` | Body + `code` + image |
+
+**Comments** (`CommentResource`):
+
+| `type` | Meaning |
+|--------|---------|
+| `text` | Body only (may still include `@mentions` in `body`) |
+| `text_code` | Body + `code` |
+
+Creating a post with a photo uses **multipart** form data; send `photo` as a file. See `StorePostRequest` and `PostController`.
+
+---
+
+## API base URL
+
+All routes in `routes/api.php` are served with the **`/api` prefix** (Laravel default).
+
+Example: `https://your-domain.com/api/posts`
+
+---
+
+## Authentication
+
+1. `POST /api/register` — creates user (+ profile) and OTP flow as implemented in `AuthController`.
+2. `POST /api/login` — returns Sanctum **`access_token`** (Bearer).
+3. Send header: `Authorization: Bearer {token}` on protected routes.
+4. `POST /api/logout` — revokes tokens (requires auth).
+
+OTP:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/otp/verify` | Verify OTP |
+| POST | `/api/otp/resend` | Resend OTP |
+
+---
+
+## API endpoints (summary)
+
+### Auth
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| POST | `/api/register` | No |
+| POST | `/api/login` | No |
+| POST | `/api/logout` | Yes |
+
+### Posts
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/posts` | No |
+| GET | `/api/posts/{post}` | No |
+| POST | `/api/posts` | Yes |
+| PUT | `/api/posts/{post}` | Yes |
+| DELETE | `/api/posts/{post}` | Yes |
+| POST | `/api/posts/{post}/toggle-like` | Yes |
+
+### Comments
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/posts/{post}/comments` | No |
+| POST | `/api/comments` | Yes — body includes `post_id` |
+| GET | `/api/comments/{comment}` | Yes |
+| POST | `/api/comments/{comment}` | Yes — update comment |
+| POST | `/api/comments/{comment}/like` | Yes |
+| POST | `/api/comments/{comment}/dislike` | Yes |
+| GET | `/api/comments/{comment}/children` | Yes |
+| POST | `/api/comments/{comment}/highlight` | Yes — post author highlights comment |
+
+### Blogs
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/blogs` | No — published list |
+| GET | `/api/blogs/{blog}` | No |
+| POST, PUT, PATCH, DELETE | `/api/blogs`, `/api/blogs/{blog}` | Yes — `apiResource` |
+
+### Users & profile
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/users/{username}` | No |
+| GET | `/api/users/{username}/profile` | No |
+| GET | `/api/users/{username}/posts` | No |
+| GET | `/api/users/{username}/blogs` | No |
+| PUT | `/api/profile` | Yes — update own profile |
+
+### Notifications
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/notifications` | Yes |
+| PATCH | `/api/notifications/{notification}/read` | Yes |
+| PATCH | `/api/notifications/read-all` | Yes |
+
+### Road maps (read API)
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/roadmaps` | No |
+| GET | `/api/roadmaps/{id}` | No |
+
+### Utility / testing routes
+
+| Method | Endpoint | Notes |
+|--------|----------|--------|
+| POST | `/api/analyze-code` | Code analysis (testing) |
+| POST | `/api/compile` | Compiler integration |
+| POST | `/api/generate-uml` | UML generation |
+
+---
+
+## Admin dashboard (Filament)
+
+- URL: **`/admin`** (default panel).
+- Uses **session** login (`web` guard), separate from API tokens.
+- Resources discovered under `app/Filament/Resources` (e.g. **Users**, **Road maps**).
+
+---
+
+## Installation (local)
 
 ```bash
-# Clone the repository
-git clone https://github.com/username/blog-api.git
+git clone <repository-url> blog-restfull-api
+cd blog-restfull-api
 
-# Install dependencies
 composer install
 
-# Configure environment and don't to create the database
 cp .env.example .env
 php artisan key:generate
 
-# Start local server
+# Configure DB in .env, then:
+php artisan migrate
+
+# Public disk URLs for avatars, covers, post photos:
+php artisan storage:link
+
 php artisan serve
 ```
 
+Optional: configure **Pusher**, **Twilio**, and mail in `.env` for notifications and OTP channels.
 
 ---
 
-## 🧑‍💻 Usage
+## Database (high level)
 
-* Register / Login using Sanctum
-* Create a Post
-* Add Comments to a Post
-* Mention users in comments using `@username`
-* Receive Notifications when mentioned in a comment
-* Retrieve all user notifications at `/api/notifications`
-
----
-
-## 📬 Example API Endpoints
-
-### Authentication
-| Method | Endpoint         | Description                |
-|--------|----------------|----------------------------|
-| POST   | `/api/register` | Register a new user        |
-| POST   | `/api/login`    | Login and get auth token   |
-| POST   | `/api/logout`   | Logout the authenticated user |
-
-### Posts
-| Method | Endpoint        | Description               |
-|--------|----------------|---------------------------|
-| GET    | `/api/posts`    | List all posts            |
-| GET    | `/api/posts/{id}` | Get a single post       |
-| POST   | `/api/posts`    | Create a new post         |
-| PUT    | `/api/posts/{id}` | Update a post           |
-| DELETE | `/api/posts/{id}` | Delete a post           |
-
-### Comments
-| Method | Endpoint                  | Description                |
-|--------|---------------------------|----------------------------|
-| POST   | `/api/posts/{id}/comments` | Add a comment to a post    |
-| GET    | `/api/posts/{id}/comments` | List comments for a post   |
-| GET    | `/api/comments/{id}` | Get a single comment         |
-| PUT    | `/api/comments/{id}` | Update a comment             |
-| DELETE | `/api/comments/{id}` | Delete a comment             |
-
-### Mentions & Notifications
-- Mention users in comments using `@username`
-- Notifications are sent automatically and stored in database
-- Real-time broadcasting using Pusher
+- **users** — accounts (incl. `username`).
+- **profiles** — extended user info, avatar/cover filenames, `ranking_points`, badges (computed in model).
+- **posts** — feed posts: `title`, `body`, `code`, `photo`, `is_published`, etc.
+- **blogs** — article-style content with `is_published`.
+- **comments** — `post_id`, optional `parent_id`, optional `code`, mentions pivot.
+- **likes** — user ↔ post likes (unique per user/post).
+- **notifications** — Laravel notifications.
+- **otps** — OTP codes for verification flows.
+- Additional tables for road maps/nodes, comment likes pivot, etc. — see `database/migrations/`.
 
 ---
 
-## 📸 Example with Postman
+## Documentation & testing
 
-* All endpoints are fully testable via Postman.
-* Factories can generate dummy data for testing.
+- API responses often use a shared shape via `App\Traits\ApiResponseTrait` (`status`, `message`, `data`, pagination meta where applicable).
+- Test with **Postman**, **Insomnia**, or your TeckTalk app against `/api/*`.
 
 ---
 
-## 📌 Notes
+## License
 
-* This project is mainly for **training and practice**.
-* **Likes feature is not implemented yet**.
-* Future improvements may include:
-
-  * Likes
-  * Nested comment replies
-  * Real-time chat
+MIT (same as Laravel skeleton unless changed by the project owners).
