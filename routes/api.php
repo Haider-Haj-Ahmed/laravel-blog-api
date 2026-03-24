@@ -11,6 +11,7 @@ use App\Http\Controllers\API\OtpController;
 use App\Http\Controllers\API\RoadMapController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\BlogController;
+use App\Http\Controllers\API\SavedController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -48,6 +49,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Profile
     Route::put('/profile', [ProfileController::class, 'update']);
+
+    // Saved (bookmarks): polymorphic posts & blogs; extend morph map for more kinds later
+    Route::get('/saved', [SavedController::class, 'index']);
+    Route::post('/saves', [SavedController::class, 'store']);
+    Route::delete('/saves', [SavedController::class, 'destroy']);
 });
 
 // Public routes
