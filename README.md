@@ -30,6 +30,7 @@
 - **Blogs**: long-form articles (separate from feed posts); publish flag; create restricted by profile **badge** (expert) via policy.
 - **Profiles**: per-user profile (bio, avatar, cover, links, ranking/badge); public profile by username; authenticated profile update (multipart uploads).
 - **Notifications**: list, mark read, mark all read (database notifications).
+- **Saved (bookmarks)**: polymorphic **`saves`** table for published **posts** and **blogs** (Instagram-style; more kinds can be added via `Relation::morphMap` later). List with `?type=post|blog|all`.
 - **Extras** (public or utility): code compile proxy, UML generation, code analysis (testing), **road maps** API, Filament-managed road maps in admin.
 
 ---
@@ -134,6 +135,16 @@ OTP:
 | GET | `/api/users/{username}/blogs` | No |
 | PUT | `/api/profile` | Yes — update own profile |
 
+### Saved (bookmarks)
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/api/saved?type=post\|blog\|all` | Yes — default `type=all` |
+| POST | `/api/saves` | Yes — body: `{ "type": "post" \| "blog", "id": <id> }` |
+| DELETE | `/api/saves` | Yes — same JSON body to remove |
+
+Only **published** posts/blogs can be saved. Each list item uses `SavedItemResource`: `kind` (`post` \| `blog`), `saved_at`, and `data` (same shape as `PostResource` / `BlogResource`). The morph map is registered in `AppServiceProvider` (`post`, `blog`) so additional saveable types can be added later (e.g. reels) without new tables.
+
 ### Notifications
 
 | Method | Endpoint | Auth |
@@ -199,6 +210,7 @@ Optional: configure **Pusher**, **Twilio**, and mail in `.env` for notifications
 - **blogs** — article-style content with `is_published`.
 - **comments** — `post_id`, optional `parent_id`, optional `code`, mentions pivot.
 - **likes** — user ↔ post likes (unique per user/post).
+- **saves** — polymorphic bookmarks: `user_id`, `saveable_type` (morph map: `post`, `blog`), `saveable_id`; unique per user + item.
 - **notifications** — Laravel notifications.
 - **otps** — OTP codes for verification flows.
 - Additional tables for road maps/nodes, comment likes pivot, etc. — see `database/migrations/`.
