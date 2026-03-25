@@ -21,6 +21,11 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create([]);
         // Post::factory(20)->create();
         // Comment::factory(50)->create();
+        User::create([
+            'name'=>'admin',
+            'email'=>'admin@exampl.com',
+            'password'=>bcrypt('password'),
+            'username'=>'admin']);
         $this->call(RoadMapSeeder::class);
     }
 }

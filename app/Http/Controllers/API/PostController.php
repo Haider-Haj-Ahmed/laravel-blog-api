@@ -52,6 +52,7 @@ class PostController extends Controller
         }
 
         $post = $request->user()->posts()->create($credentials);
+        $post->tags()->sync($credentials['tags'] ?? []); // Sync tags if provided
 
         // Load relationships and counts for consistency
         $post->load('user');

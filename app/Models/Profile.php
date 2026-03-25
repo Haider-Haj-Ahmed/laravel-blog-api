@@ -51,4 +51,7 @@ class Profile extends Model
     {
         return $this->badge === 'expert';
     }
+    public function tags(){
+        return $this->belongsToMany(Tag::class,'profile_tag');
+    }
 }

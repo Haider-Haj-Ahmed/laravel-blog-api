@@ -11,6 +11,7 @@ use App\Http\Controllers\API\OtpController;
 use App\Http\Controllers\API\RoadMapController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\BlogController;
+use App\Http\Controllers\API\TagController;
 use App\Http\Controllers\API\SavedController;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -49,6 +50,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Profile
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
+    //some tags routes
+    Route::post('/updatepost/tags/{post}',[TagController::class,'updatePost']);
+    Route::post('/updateprofile/tags/{profile}',[TagController::class,'updateProfile']);
+    Route::post('/survy',[TagController::class,'survy']);
+    });
+    
+    // Public routes
+    Route::get('/posts', [PostController::class, 'index']);
 
     // Saved (bookmarks): polymorphic posts & blogs; extend morph map for more kinds later
     Route::get('/saved', [SavedController::class, 'index']);
@@ -76,3 +86,6 @@ Route::post('/generate-uml',[App\Http\Controllers\API\UMLController::class,'gene
 //Road Map Routes
 Route::get('/roadmaps',[RoadMapController::class,'index']);
 Route::get('/roadmaps/{id}',[RoadMapController::class,'show']);
+//Tags Routes
+Route::get('/tags',[TagController::class,'index']);
+Route::get('/profiles',[ProfileController::class,'index']);
