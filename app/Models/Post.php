@@ -4,11 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Post extends Model
 {
     use HasFactory;
     protected $fillable = ['title', 'body', 'code', 'photo', 'is_published'];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Post $post) {
+            $post->saves()->delete();
+        });
+    }
+
+    public function saves(): MorphMany
+    {
+        return $this->morphMany(Save::class, 'saveable');
+    }
 
     public function user()
     {

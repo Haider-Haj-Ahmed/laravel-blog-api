@@ -3,6 +3,8 @@
 namespace App\Traits;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -141,18 +143,31 @@ trait ApiResponseTrait
      */
     protected function paginatedResponse($data, ?string $message = null): JsonResponse
     {
+        // Json API resources wrapping a paginator must be resolved (not raw ->items() on models).
+        if ($data instanceof ResourceCollection) {
+            $paginator = $data->resource;
+            $payload = $data->resolve(request());
+        } else {
+            $paginator = $data;
+            $payload = $data->items();
+        }
+
+        if (! $paginator instanceof LengthAwarePaginator) {
+            throw new \InvalidArgumentException('paginatedResponse expects a length-aware paginator or a resource collection wrapping one.');
+        }
+
         $response = [
             'status' => 'success',
             'message' => $message,
-            'data' => $data->items(),
+            'data' => $payload,
             'pagination' => [
-                'current_page' => $data->currentPage(),
-                'last_page' => $data->lastPage(),
-                'per_page' => $data->perPage(),
-                'total' => $data->total(),
-                'from' => $data->firstItem(),
-                'to' => $data->lastItem(),
-                'has_more_pages' => $data->hasMorePages(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'has_more_pages' => $paginator->hasMorePages(),
             ],
         ];
 
