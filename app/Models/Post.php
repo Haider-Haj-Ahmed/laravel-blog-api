@@ -37,4 +37,7 @@ class Post extends Model
         }
         return $this->likedByUsers()->where('user_id', $user->id)->exists();
     }
+    public function tags(){
+        return $this->belongsToMany(Tag::class,'post_tag');
+    }
 }

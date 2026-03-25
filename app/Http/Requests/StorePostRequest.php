@@ -26,7 +26,9 @@ class StorePostRequest extends FormRequest
             'body' => 'required|string',
             'code' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
-            'is_published' => 'boolean'
+            'is_published' => 'boolean',
+            'tags'=>'array',
+            'tags.*'=>'exists:tags,id'
         ];
     }
 }

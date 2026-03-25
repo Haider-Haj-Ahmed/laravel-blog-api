@@ -32,6 +32,7 @@ class ProfileResource extends JsonResource
             'blogs_count' => $this->blogs()->count(),
             'joined_at' => $this->created_at,
             'last_seen_at' => $profile?->last_seen_at,
+            'tags' => $profile?->tags() ?? [],
         ];
     }
 }

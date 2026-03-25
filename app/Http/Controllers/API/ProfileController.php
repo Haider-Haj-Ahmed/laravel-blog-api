@@ -27,6 +27,17 @@ class ProfileController extends Controller
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
     }
+    public function showViaId($id){
+        $profile = Profile::where('id', $id)->with('tags')->first();
+        if(!$profile) {
+            return response()->json(['message'=> 'Profile not found'],404);
+        }
+        return response()->json(['profile'=>$profile],200);
+    }
+    public function index(){
+        $profiles = Profile::orderBy('created_at','desc')->paginate(10);
+        return response()->json(['profiles'=>$profiles]);
+    }
 
     /**
      * Update the authenticated user's profile.
