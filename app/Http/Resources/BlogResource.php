@@ -26,6 +26,7 @@ class BlogResource extends JsonResource
                 'avatar_url' => $this->user->profile?->avatar ? asset("storage/avatars/{$this->user->profile->avatar}") : asset('images/default-avatar.png'),
                 'badge' => $this->user->profile?->badge ?? 'junior',
             ],
+            'tags'=>$this->tags()->get(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

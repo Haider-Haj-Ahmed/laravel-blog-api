@@ -13,6 +13,7 @@ use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\BlogController;
 use App\Http\Controllers\API\TagController;
 use App\Http\Controllers\API\SavedController;
+use App\Http\Controllers\API\SearchController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -64,8 +65,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/saved', [SavedController::class, 'index']);
     Route::post('/saves', [SavedController::class, 'store']);
     Route::delete('/saves', [SavedController::class, 'destroy']);
-});
-
 // Public routes
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{post}', [PostController::class, 'show']);
@@ -89,3 +88,5 @@ Route::get('/roadmaps/{id}',[RoadMapController::class,'show']);
 //Tags Routes
 Route::get('/tags',[TagController::class,'index']);
 Route::get('/profiles',[ProfileController::class,'index']);
+//Search
+Route::post('/search',[SearchController::class,'search']);

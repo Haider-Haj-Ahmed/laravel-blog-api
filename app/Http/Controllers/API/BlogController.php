@@ -34,9 +34,12 @@ class BlogController extends Controller
      */
     public function store(StoreBlogRequest $request)
     {
-        $this->authorize('create', Blog::class);
+        // $this->authorize('create', Blog::class);
 
         $blog = $request->user()->blogs()->create($request->validated());
+        if($request->has('tags')){
+            $blog->tags()->sync($request->input('tags'));
+        }
 
         return $this->createdResponse(
             new BlogResource($blog->load('user')),
@@ -49,7 +52,7 @@ class BlogController extends Controller
      */
     public function show(Blog $blog)
     {
-        $this->authorize('view', $blog);
+        // $this->authorize('view', $blog);
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog retrieved successfully');
     }
@@ -60,12 +63,17 @@ class BlogController extends Controller
     public function update(Request $request, Blog $blog)
     {
         $this->authorize('update', $blog);
-
-        $blog->update($request->validate([
-            'title' => 'required|string',
-            'body' => 'required|string',
-            'is_published' => 'boolean'
-        ]));
+        $atts=$request->validate([
+            'title' => 'sometimes|string',
+            'body' => 'sometimes|string',
+            'tags'=>'array',
+            'tags.*'=>'exists:tags,id',
+            'is_published' => 'sometimes|boolean'
+        ]);
+        $blog->update($atts);
+        if(isset($atts['tags'])){
+            $blog->tags()->sync($atts['tags']);
+        }
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog updated successfully');
     }

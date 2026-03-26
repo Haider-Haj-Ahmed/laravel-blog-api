@@ -25,6 +25,8 @@ class StoreBlogRequest extends FormRequest
         return [
             'title' => 'required|string|max:255',
             'body' => 'required|string',
+            'tags' => 'array',
+            'tags.*' => 'exists:tags,id',
             'is_published' => 'boolean',
         ];
     }
