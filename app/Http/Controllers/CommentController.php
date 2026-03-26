@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreCommentRequest;
 use Illuminate\Http\Request;
 use App\Models\Comment;
-use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 use App\Http\Resources\CommentResource;
 use App\Jobs\AnalyzeCommentCode;
 use App\Traits\MentionTrait;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Models\Blog;
+use App\Models\Post;
+use App\Services\ActivityService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
@@ -20,6 +19,11 @@ use App\Events\CommentHighlighted;
 class CommentController extends Controller
 {
     use MentionTrait, ApiResponseTrait;
+
+    public function __construct(private readonly ActivityService $activityService)
+    {
+    }
+
     public function index($postId)
     {
         $comments = Comment::where('post_id', $postId)
@@ -36,6 +40,24 @@ class CommentController extends Controller
             'Comments retrieved successfully'
         );
     }
+
+    public function indexByBlog($blogId)
+    {
+        $comments = Comment::where('blog_id', $blogId)
+            ->with(['user', 'mentions'])
+            ->latest()
+            ->paginate(15);
+
+        if ($comments->isEmpty()) {
+            return $this->successResponse([], 'No comments found for this blog');
+        }
+
+        return $this->paginatedResponse(
+            CommentResource::collection($comments),
+            'Comments retrieved successfully'
+        );
+    }
+
     public function show($id)
     {
         $comment = Comment::with(['user', 'mentions'])->find($id);
@@ -51,15 +73,17 @@ class CommentController extends Controller
     {
         $atts=$request->validate([
             'body' => 'required|string',
-            'post_id' => 'required|exists:posts,id',
+            'post_id' => 'nullable|exists:posts,id|required_without:blog_id|prohibited_with:blog_id',
+            'blog_id' => 'nullable|exists:blogs,id|required_without:post_id|prohibited_with:post_id',
             'code'=>'nullable|string',
             'parent_id'=>'nullable|exists:comments,id',
         ]);
-        Log::error($atts);
+
         $comment = Comment::create([
             'body' => $atts['body'],
             'user_id' => $request->user()->id,
-            'post_id' => $atts['post_id'],
+            'post_id' => $atts['post_id'] ?? null,
+            'blog_id' => $atts['blog_id'] ?? null,
             'code' => $atts['code'] ?? null,
             'parent_id' => $atts['parent_id'] ?? null,
         ]);
@@ -71,10 +95,41 @@ class CommentController extends Controller
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
 
+        if ($comment->post_id) {
+            $post = Post::find($comment->post_id);
+            if ($post) {
+                $this->activityService->logUserInteraction(
+                    $request->user(),
+                    $post,
+                    'post_commented',
+                    ['comment_id' => $comment->id]
+                );
+            }
+        }
+
+        if ($comment->blog_id) {
+            $blog = Blog::find($comment->blog_id);
+            if ($blog) {
+                $this->activityService->logUserInteraction(
+                    $request->user(),
+                    $blog,
+                    'blog_commented',
+                    ['comment_id' => $comment->id]
+                );
+            }
+        }
+
         return $this->createdResponse(
             CommentResource::make($comment),
             'Comment created successfully'
         );
+    }
+
+    public function storeForBlog(Request $request, Blog $blog)
+    {
+        $request->merge(['blog_id' => $blog->id]);
+
+        return $this->store($request);
     }
 
     public function update(Request $request, $id)
@@ -127,13 +182,13 @@ class CommentController extends Controller
                 $comment->likes()->attach($request->user()->id,['is_like'=>true]);
                 $comment->likes++;
                 $comment->save();
-                CommentLiked::dispatch($comment);
+                CommentLiked::dispatch($comment, $request->user());
             }else{
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => true]);
                 $comment->dislikes--;
                 $comment->likes++;
                 $comment->save();
-                CommentLiked::dispatch($comment);
+                CommentLiked::dispatch($comment, $request->user());
             }
         }else{
             $comment->likes()->detach($request->user()->id);
@@ -154,13 +209,13 @@ class CommentController extends Controller
                 $comment->dislikes()->attach($request->user()->id,['is_like'=>false]);
                 $comment->dislikes++;
                 $comment->save();
-                CommentDisliked::dispatch($comment);
+                CommentDisliked::dispatch($comment, $request->user());
             }else{
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => false]);
                 $comment->likes--;
                 $comment->dislikes++;
                 $comment->save();
-                CommentDisliked::dispatch($comment);
+                CommentDisliked::dispatch($comment, $request->user());
             }
         }else{
             $comment->dislikes()->detach($request->user()->id);
@@ -200,13 +255,14 @@ class CommentController extends Controller
             return $this->notFoundResponse('Comment not found');
         }
 
-        // Check if the authenticated user is the author of the post
-        if ($comment->post->user_id !== $request->user()->id) {
+        $ownerId = $comment->post?->user_id ?? $comment->blog?->user_id;
+
+        if (!$ownerId || $ownerId !== $request->user()->id) {
             return $this->forbiddenResponse('You are not authorized to highlight this comment');
         }
 
         // Dispatch the highlight event
-        CommentHighlighted::dispatch($comment);
+        CommentHighlighted::dispatch($comment, $request->user());
 
         return $this->successResponse(null, 'Comment highlighted successfully');
     }

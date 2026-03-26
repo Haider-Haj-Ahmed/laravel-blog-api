@@ -132,7 +132,9 @@ class ProfileController extends Controller
         }
 
         $blogs = $user->blogs()
+            ->with('user')
             ->where('is_published', true)
+            ->withCount('comments', 'likes')
             ->latest()
             ->paginate(15);
 
