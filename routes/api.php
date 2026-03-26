@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CompilerController;
+use App\Http\Controllers\API\ActivityController;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\UserController;
@@ -29,9 +30,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Likes (Instagram-style toggle)
     Route::post('/posts/{post}/toggle-like', [PostController::class, 'toggleLike']);
+    Route::post('/blogs/{blog}/toggle-like', [BlogController::class, 'toggleLike']);
 
     // Comments
     Route::post('/comments', [CommentController::class, 'store']);
+    Route::post('/blogs/{blog}/comments', [CommentController::class, 'storeForBlog']);
     Route::get('/comments/{comment}', [CommentController::class, 'show']);
     Route::post('/comments/{comment}', [CommentController::class, 'update']);
     Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
@@ -44,32 +47,30 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::get('/activity', [ActivityController::class, 'index']);
 
     // Blogs
     Route::apiResource('/blogs', BlogController::class);
-
-    // Profile
-    Route::put('/profile', [ProfileController::class, 'update']);
-    Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
-    //some tags routes
-    Route::post('/updatepost/tags/{post}',[TagController::class,'updatePost']);
-    Route::post('/updateprofile/tags/{profile}',[TagController::class,'updateProfile']);
-    Route::post('/survy',[TagController::class,'survy']);
-    });
-    
-    // Public routes
-    Route::get('/posts', [PostController::class, 'index']);
 
     // Saved (bookmarks): polymorphic posts & blogs; extend morph map for more kinds later
     Route::get('/saved', [SavedController::class, 'index']);
     Route::post('/saves', [SavedController::class, 'store']);
     Route::delete('/saves', [SavedController::class, 'destroy']);
+
+    // Profile
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
+    // some tags routes
+    Route::post('/updatepost/tags/{post}',[TagController::class,'updatePost']);
+    Route::post('/updateprofile/tags/{profile}',[TagController::class,'updateProfile']);
+    Route::post('/survy',[TagController::class,'survy']);
 });
 
 // Public routes
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{post}', [PostController::class, 'show']);
 Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
+Route::get('/blogs/{blog}/comments', [CommentController::class, 'indexByBlog']);
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 Route::get('/users/{username}/profile', [ProfileController::class, 'show']);
 Route::get('/users/{username}/posts', [ProfileController::class, 'posts']);

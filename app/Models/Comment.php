@@ -18,6 +18,11 @@ class Comment extends Model
         return $this->belongsTo(Post::class);
     }
 
+    public function blog()
+    {
+        return $this->belongsTo(Blog::class);
+    }
+
     public function mentions()
     {
         return $this->belongsToMany(User::class, 'comment_user_mentions');

@@ -12,6 +12,7 @@ use App\Listeners\AwardPointsForLike;
 use App\Listeners\DeductPointsForDislike;
 use App\Listeners\AwardPointsForVerification;
 use App\Listeners\AwardPointsForHighlight;
+use App\Listeners\LogCommentEventActivity;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -23,15 +24,19 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         CommentLiked::class => [
             AwardPointsForLike::class,
+            LogCommentEventActivity::class,
         ],
         CommentDisliked::class => [
             DeductPointsForDislike::class,
+            LogCommentEventActivity::class,
         ],
         CommentVerified::class => [
             AwardPointsForVerification::class,
+            LogCommentEventActivity::class,
         ],
         CommentHighlighted::class => [
             AwardPointsForHighlight::class,
+            LogCommentEventActivity::class,
         ],
     ];
 

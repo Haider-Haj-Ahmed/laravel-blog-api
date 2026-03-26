@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Post;
 use App\Models\Like;
+use App\Services\ActivityService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,10 @@ use Illuminate\Support\Facades\Storage;
 class PostController extends Controller
 {
     use ApiResponseTrait;
+
+    public function __construct(private readonly ActivityService $activityService)
+    {
+    }
     /**
      * Display a listing of the resource.
      */
@@ -187,6 +192,12 @@ class PostController extends Controller
                 'post_id' => $post->id,
             ]);
             $isLiked = true;
+
+            $this->activityService->logUserInteraction(
+                $user,
+                $post,
+                'post_liked'
+            );
         }
 
         // Return updated post with like count
