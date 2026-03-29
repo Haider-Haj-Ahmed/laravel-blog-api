@@ -19,7 +19,15 @@ class ProfileController extends Controller
      */
     public function show($username)
     {
-        $user = User::where('username', $username)->with('profile')->first();
+        $user = User::where('username', $username)
+            ->with('profile')
+            ->withCount([
+                'followers',
+                'following',
+                'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
+                'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
+            ])
+            ->first();
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
@@ -94,7 +102,14 @@ class ProfileController extends Controller
         $profile->fill($validated);
         $profile->save();
 
-        return $this->successResponse(new ProfileResource($user->load('profile')), 'Profile updated successfully');
+        $user->load('profile')->loadCount([
+            'followers',
+            'following',
+            'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
+            'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
+        ]);
+
+        return $this->successResponse(new ProfileResource($user), 'Profile updated successfully');
     }
 
     /**
@@ -110,6 +125,7 @@ class ProfileController extends Controller
 
         $posts = $user->posts()
             ->with('user')
+            ->where('is_published', true)
             ->withCount('comments', 'likes')
             ->latest()
             ->paginate(15);

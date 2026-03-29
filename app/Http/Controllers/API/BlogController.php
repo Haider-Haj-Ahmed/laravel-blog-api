@@ -58,7 +58,9 @@ class BlogController extends Controller
      */
     public function show(Blog $blog)
     {
-        if (!$blog->is_published && (!auth()->check() || auth()->id() !== $blog->user_id)) {
+        $viewer = auth('sanctum')->user();
+
+        if (!$blog->is_published && (! $viewer || $viewer->id !== $blog->user_id)) {
             return $this->forbiddenResponse('You are not authorized to view this blog');
         }
 
@@ -126,5 +128,20 @@ class BlogController extends Controller
             'is_liked' => $isLiked,
             'likes_count' => $blog->likes_count,
         ], $isLiked ? 'Blog liked' : 'Blog unliked');
+    }
+
+    public function drafts(Request $request)
+    {
+        $blogs = $request->user()->blogs()
+            ->with('user')
+            ->where('is_published', false)
+            ->withCount('comments', 'likes')
+            ->latest()
+            ->paginate(15);
+
+        return $this->paginatedResponse(
+            BlogResource::collection($blogs),
+            'Draft blogs retrieved successfully'
+        );
     }
 }
