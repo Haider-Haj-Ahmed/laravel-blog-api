@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Notifications\UserFollowedNotification;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Traits\ApiResponseTrait;
@@ -47,5 +48,55 @@ class UserController extends Controller
         $request->user()->update($validated);
 
         return $this->successResponse($request->user(), 'Profile updated successfully');
+    }
+
+    public function follow(Request $request, string $username)
+    {
+        $targetUser = User::where('username', $username)->first();
+
+        if (! $targetUser) {
+            return $this->notFoundResponse('User not found');
+        }
+
+        if ($request->user()->id === $targetUser->id) {
+            return $this->validationErrorResponse([
+                'user' => ['You cannot follow yourself.'],
+            ]);
+        }
+
+        if ($request->user()->isFollowing($targetUser)) {
+            return $this->successResponse([
+                'is_following' => true,
+                'followers_count' => $targetUser->followers()->count(),
+            ], 'Already following user');
+        }
+
+        $request->user()->following()->attach($targetUser->id);
+        $targetUser->notify(new UserFollowedNotification($request->user()));
+
+        return $this->successResponse([
+            'is_following' => true,
+            'followers_count' => $targetUser->followers()->count(),
+        ], 'User followed successfully');
+    }
+
+    public function unfollow(Request $request, string $username)
+    {
+        $targetUser = User::where('username', $username)->first();
+
+        if (! $targetUser) {
+            return $this->notFoundResponse('User not found');
+        }
+
+        $deleted = $request->user()->following()->detach($targetUser->id);
+
+        if (! $deleted) {
+            return $this->notFoundResponse('You are not following this user');
+        }
+
+        return $this->successResponse([
+            'is_following' => false,
+            'followers_count' => $targetUser->followers()->count(),
+        ], 'User unfollowed successfully');
     }
 }

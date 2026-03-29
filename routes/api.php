@@ -6,7 +6,7 @@ use App\Http\Controllers\API\CompilerController;
 use App\Http\Controllers\API\ActivityController;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\CommentController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\API\OtpController;
 use App\Http\Controllers\API\RoadMapController;
@@ -25,6 +25,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Posts
     Route::post('/posts', [PostController::class, 'store']);
+    Route::get('/posts/drafts', [PostController::class, 'drafts']);
     Route::put('/posts/{post}', [PostController::class, 'update']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
 
@@ -50,7 +51,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/activity', [ActivityController::class, 'index']);
 
     // Blogs
+    Route::get('/blogs/drafts', [BlogController::class, 'drafts']);
     Route::apiResource('/blogs', BlogController::class);
+
+    // Following
+    Route::post('/users/{username}/follow', [UserController::class, 'follow']);
+    Route::delete('/users/{username}/follow', [UserController::class, 'unfollow']);
 
     // Saved (bookmarks): polymorphic posts & blogs; extend morph map for more kinds later
     Route::get('/saved', [SavedController::class, 'index']);

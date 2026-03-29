@@ -31,6 +31,7 @@ class PostResource extends JsonResource
             'title' => $this->title,
             'body' => $this->body,
             'code' => $this->code,
+            'code_language' => $this->code_language,
             'photo_url' => $hasPhoto ? asset("storage/post_photos/{$this->photo}") : null,
             'type' => $type,
             'is_published' => $this->is_published,

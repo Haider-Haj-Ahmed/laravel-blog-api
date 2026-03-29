@@ -15,6 +15,11 @@ class ProfileResource extends JsonResource
     public function toArray(Request $request): array
     {
         $profile = $this->profile;
+        $viewer = auth('sanctum')->user();
+        $postsCount = $this->published_posts_count ?? $this->posts()->where('is_published', true)->count();
+        $blogsCount = $this->published_blogs_count ?? $this->blogs()->where('is_published', true)->count();
+        $followersCount = $this->followers_count ?? $this->followers()->count();
+        $followingCount = $this->following_count ?? $this->following()->count();
 
         return [
             'username' => $this->username,
@@ -28,8 +33,11 @@ class ProfileResource extends JsonResource
             'cover_image_url' => $profile?->cover_image ? asset("storage/covers/{$profile->cover_image}") : null,
             'ranking_points' => $profile?->ranking_points ?? 0,
             'badge' => $profile?->badge ?? 'junior',
-            'posts_count' => $this->posts()->count(),
-            'blogs_count' => $this->blogs()->count(),
+            'posts_count' => $postsCount,
+            'blogs_count' => $blogsCount,
+            'followers_count' => $followersCount,
+            'following_count' => $followingCount,
+            'is_following' => $viewer ? $viewer->isFollowing($this->resource) : false,
             'joined_at' => $this->created_at,
             'last_seen_at' => $profile?->last_seen_at,
             'tags' => $profile?->tags() ?? [],

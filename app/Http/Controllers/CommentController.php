@@ -76,6 +76,7 @@ class CommentController extends Controller
             'post_id' => 'nullable|exists:posts,id|required_without:blog_id|prohibited_with:blog_id',
             'blog_id' => 'nullable|exists:blogs,id|required_without:post_id|prohibited_with:post_id',
             'code'=>'nullable|string',
+            'code_language' => 'nullable|string|max:50',
             'parent_id'=>'nullable|exists:comments,id',
         ]);
 
@@ -85,6 +86,7 @@ class CommentController extends Controller
             'post_id' => $atts['post_id'] ?? null,
             'blog_id' => $atts['blog_id'] ?? null,
             'code' => $atts['code'] ?? null,
+            'code_language' => $atts['code_language'] ?? null,
             'parent_id' => $atts['parent_id'] ?? null,
         ]);
 
@@ -148,13 +150,15 @@ class CommentController extends Controller
         $atts=$request->validate([
             'body' => 'nullable|string',
             'code'=>'nullable|string',
+            'code_language' => 'nullable|string|max:50',
         ]);
         preg_match_all('/@([\w\-]+)/', $comment->body, $matches);
 
         $oldUsernames = $matches[1] ?? [];
         $comment->update([
             'body' => $atts['body'] ?? $comment->body,
-            'code' => $atts['code'] ?? $comment->code
+            'code' => $atts['code'] ?? $comment->code,
+            'code_language' => array_key_exists('code_language', $atts) ? $atts['code_language'] : $comment->code_language,
         ]);
 
         $this->handleMentions($comment,$oldUsernames);
