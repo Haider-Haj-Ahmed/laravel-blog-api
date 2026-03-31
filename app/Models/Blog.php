@@ -40,4 +40,28 @@ class Blog extends Model
     public function tags(){
         return $this->belongsToMany(Tag::class,'blog_tag');
     }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(BlogLike::class);
+    }
+
+    public function likedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'blog_likes')->withTimestamps();
+    }
+
+    public function isLikedBy($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->likedByUsers()->where('user_id', $user->id)->exists();
+    }
 }

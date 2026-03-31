@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Post;
 use App\Models\Like;
+use App\Services\ActivityService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 use Illuminate\Support\Facades\Storage;
@@ -15,12 +16,17 @@ use Illuminate\Support\Facades\Storage;
 class PostController extends Controller
 {
     use ApiResponseTrait;
+
+    public function __construct(private readonly ActivityService $activityService)
+    {
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
         $posts = Post::with('user')
+            ->where('is_published', true)
             ->withCount('comments')
             ->withCount('likes')
             ->latest()
@@ -78,6 +84,11 @@ class PostController extends Controller
             return $this->notFoundResponse('Post not found');
         }
 
+        $viewer = auth('sanctum')->user();
+        if (! $post->is_published && (! $viewer || $viewer->id !== $post->user_id)) {
+            return $this->forbiddenResponse('You are not authorized to view this post');
+        }
+
         return $this->successResponse(
             new PostResource($post),
             'Post retrieved successfully'
@@ -106,6 +117,7 @@ class PostController extends Controller
             'title' => 'sometimes|string|max:255',
             'body' => 'sometimes|string',
             'code' => 'sometimes|nullable|string',
+            'code_language' => 'sometimes|nullable|string|max:50',
             'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
             'is_published' => 'sometimes|boolean'
         ]);
@@ -187,6 +199,12 @@ class PostController extends Controller
                 'post_id' => $post->id,
             ]);
             $isLiked = true;
+
+            $this->activityService->logUserInteraction(
+                $user,
+                $post,
+                'post_liked'
+            );
         }
 
         // Return updated post with like count
@@ -196,5 +214,20 @@ class PostController extends Controller
             'is_liked' => $isLiked,
             'likes_count' => $post->likes_count,
         ], $isLiked ? 'Post liked' : 'Post unliked');
+    }
+
+    public function drafts(Request $request)
+    {
+        $posts = $request->user()->posts()
+            ->with('user')
+            ->where('is_published', false)
+            ->withCount('comments', 'likes')
+            ->latest()
+            ->paginate(15);
+
+        return $this->paginatedResponse(
+            PostResource::collection($posts),
+            'Draft posts retrieved successfully'
+        );
     }
 }

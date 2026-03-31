@@ -41,7 +41,7 @@ class AnalyzeCommentCode implements ShouldQueue
             $label = 'UNKNOWN';
         }
         Log::error($label);
-        $this->comment->code_label = $label;
+        $this->comment->code_language = $label;
         $this->comment->save();
 
         if ($label === 'SAFE') {

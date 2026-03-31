@@ -27,6 +27,11 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Post::class, 'likes')->withTimestamps();
     }
+
+    public function likedBlogs()
+    {
+        return $this->belongsToMany(Blog::class, 'blog_likes')->withTimestamps();
+    }
     public function comments(){
         return $this->hasMany(Comment::class);
     }
@@ -41,9 +46,29 @@ class User extends Authenticatable
         return $this->hasMany(Blog::class);
     }
 
+    public function followers()
+    {
+        return $this->belongsToMany(User::class, 'follows', 'followed_id', 'follower_id')->withTimestamps();
+    }
+
+    public function following()
+    {
+        return $this->belongsToMany(User::class, 'follows', 'follower_id', 'followed_id')->withTimestamps();
+    }
+
+    public function isFollowing(User $user): bool
+    {
+        return $this->following()->where('followed_id', $user->id)->exists();
+    }
+
     public function saves()
     {
         return $this->hasMany(Save::class);
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(Activity::class, 'owner_user_id');
     }
 
     /**

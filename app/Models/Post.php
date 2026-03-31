@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Post extends Model
 {
     use HasFactory;
-    protected $fillable = ['title', 'body', 'code', 'photo', 'is_published'];
+    protected $fillable = ['title', 'body', 'code', 'code_language', 'photo', 'is_published'];
 
     protected static function booted(): void
     {
