@@ -28,6 +28,13 @@ return new class extends Migration
             $table->foreignId('tag_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
+        Schema::create('blog_tag', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('blog_id')->constrained()->onDelete('cascade');
+            $table->foreignId('tag_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+        });
+
     }
 
     /**
@@ -37,6 +44,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('profile_tag');
         Schema::dropIfExists('post_tag');
+        Schema::dropIfExists('blog_tag');
         Schema::dropIfExists('tags');
     }
 };

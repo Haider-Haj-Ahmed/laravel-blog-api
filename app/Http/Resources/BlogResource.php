@@ -31,6 +31,7 @@ class BlogResource extends JsonResource
             'comments_count' => $this->when(isset($this->comments_count), $this->comments_count),
             'likes_count' => $this->when(isset($this->likes_count), $this->likes_count),
             'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
+            'tags'=>$this->tags()->get(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
