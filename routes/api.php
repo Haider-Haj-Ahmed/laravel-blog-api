@@ -99,3 +99,5 @@ Route::get('/tags',[TagController::class,'index']);
 Route::get('/profiles',[ProfileController::class,'index']);
 //Search
 Route::post('/search',[SearchController::class,'search']);
+//Suggetions
+Route::post('/suggestions',[CommentController::class,'suggest'])->middleware('auth:sanctum');
