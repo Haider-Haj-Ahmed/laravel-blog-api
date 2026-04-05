@@ -13,7 +13,9 @@ class Blog extends Model
     protected $fillable = [
         'user_id',
         'title',
-        'body',
+        'subtitle',
+        'reading_time',
+        'cover_image_path',
         'is_published',
     ];
 
@@ -63,5 +65,9 @@ class Blog extends Model
         }
 
         return $this->likedByUsers()->where('user_id', $user->id)->exists();
+    }
+    public function sections()
+    {
+        return $this->hasMany(Section::class);
     }
 }

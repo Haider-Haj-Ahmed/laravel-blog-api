@@ -7,6 +7,7 @@ use App\Notifications\UserFollowedNotification;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Traits\ApiResponseTrait;
+use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
@@ -74,6 +75,8 @@ class UserController extends Controller
         $request->user()->following()->attach($targetUser->id);
         $targetUser->notify(new UserFollowedNotification($request->user()));
 
+        Cache::forget("user:{$request->user()->id}:following_ids");
+        Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([
             'is_following' => true,
             'followers_count' => $targetUser->followers()->count(),
@@ -93,7 +96,8 @@ class UserController extends Controller
         if (! $deleted) {
             return $this->notFoundResponse('You are not following this user');
         }
-
+        Cache::forget("user:{$request->user()->id}:following_ids");
+        Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([
             'is_following' => false,
             'followers_count' => $targetUser->followers()->count(),

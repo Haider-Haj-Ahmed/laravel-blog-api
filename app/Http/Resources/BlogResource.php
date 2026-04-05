@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class BlogResource extends JsonResource
 {
@@ -17,7 +18,9 @@ class BlogResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'body' => $this->body,
+            'subtitle' => $this->subtitle,
+            'cover_image_url' => $this->cover_image_path ? Storage::url($this->cover_image_path) : null,
+            'reading_time'=>$this->reading_time,
             'is_published' => $this->is_published,
             'user' => $this->whenLoaded('user', function () {
                 return [
@@ -31,7 +34,8 @@ class BlogResource extends JsonResource
             'comments_count' => $this->when(isset($this->comments_count), $this->comments_count),
             'likes_count' => $this->when(isset($this->likes_count), $this->likes_count),
             'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
-            'tags'=>$this->tags()->get(),
+            'tags'=>TagResource::collection($this->whenLoaded('tags')),
+            'sections'=>SectionResource::collection($this->whenLoaded('sections')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

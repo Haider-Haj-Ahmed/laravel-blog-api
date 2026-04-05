@@ -24,9 +24,16 @@ class StoreBlogRequest extends FormRequest
     {
         return [
             'title' => 'required|string|max:255',
-            'body' => 'required|string',
+            'subtitle' => 'required|string',
+            'reading_time'=>'nullable|string|max:50',
+            'cover_image' => 'nullable|image|max:2048',
             'tags' => 'array',
             'tags.*' => 'exists:tags,id',
+            'sections'=>'required|array|min:1',
+            'sections.*.title'=>'required|string|max:255',
+            'sections.*.content'=>'required|string',
+            'sections.*.order'=>'required|integer|distinct|min:1',
+            'sections.*.image'=>'nullable|image|max:2048',
             'is_published' => 'boolean',
         ];
     }
