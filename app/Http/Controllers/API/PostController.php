@@ -269,4 +269,19 @@ class PostController extends Controller
 
         $post->forceFill(['photo' => $firstPhotoName])->save();
     }
+     public function viewrs(Request $request,$id){
+        $post = Post::find($id);
+        if (!$post) {
+            return $this->notFoundResponse('Post not found');
+        }
+        return response()->json([
+            'viewers' => $post->views()->with('user')->get()->map(function ($view) {
+                return [
+                    'id' => $view->user_id,
+                    'username' => $view->user->username,
+                    'viewed_at' => $view->created_at->toDateTimeString(),
+                ];
+            }),
+        ]);
+    }
 }

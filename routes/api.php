@@ -15,6 +15,7 @@ use App\Http\Controllers\API\BlogController;
 use App\Http\Controllers\API\TagController;
 use App\Http\Controllers\API\SavedController;
 use App\Http\Controllers\API\SearchController;
+use App\Http\Controllers\API\ViewController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -29,6 +30,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/posts/drafts', [PostController::class, 'drafts']);
     Route::put('/posts/{post}', [PostController::class, 'update']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
+    Route::get('/posts/viewers/{id}', [PostController::class, 'viewrs']);
+
 
     // Likes (Instagram-style toggle)
     Route::post('/posts/{post}/toggle-like', [PostController::class, 'toggleLike']);
@@ -52,6 +55,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/activity', [ActivityController::class, 'index']);
 
     // Blogs
+    Route::get('/blogs/viewers/{id}', [BlogController::class, 'viewrs']);
     Route::get('/blogs/drafts', [BlogController::class, 'drafts']);
     Route::apiResource('/blogs', BlogController::class);
 
@@ -64,12 +68,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/saves', [SavedController::class, 'store']);
     Route::delete('/saves', [SavedController::class, 'destroy']);
 
+    // Views (polymorphic posts, blogs, profiles)
+    Route::post('/views', [ViewController::class, 'store']);
+
     // Profile
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
     // some tags routes
     Route::post('/updatepost/tags/{post}',[TagController::class,'updatePost']);
     Route::post('/updateprofile/tags/{profile}',[TagController::class,'updateProfile']);
+    Route::get('/profiles/viewers/{id}', [ProfileController::class, 'viewrs']);
     Route::post('/survy',[TagController::class,'survy']);
 });
 

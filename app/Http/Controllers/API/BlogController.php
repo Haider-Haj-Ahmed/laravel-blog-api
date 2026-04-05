@@ -203,4 +203,19 @@ class BlogController extends Controller
             'Draft blogs retrieved successfully'
         );
     }
+    public function viewrs(Request $request,$id){
+        $blog = Blog::find($id);
+        if (!$blog) {
+            return $this->notFoundResponse('Blog not found');
+        }
+        return response()->json([
+            'viewers' => $blog->views()->with('user')->get()->map(function ($view) {
+                return [
+                    'id' => $view->user_id,
+                    'username' => $view->user->username,
+                    'viewed_at' => $view->created_at->toDateTimeString(),
+                ];
+            }),
+        ]);
+    }
 }

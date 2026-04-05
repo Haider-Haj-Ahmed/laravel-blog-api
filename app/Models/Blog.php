@@ -27,12 +27,18 @@ class Blog extends Model
     {
         static::deleting(function (Blog $blog) {
             $blog->saves()->delete();
+            $blog->views()->delete();
         });
     }
 
     public function saves(): MorphMany
     {
         return $this->morphMany(Save::class, 'saveable');
+    }
+
+    public function views(): MorphMany
+    {
+        return $this->morphMany(View::class, 'viewable');
     }
 
     public function user()
