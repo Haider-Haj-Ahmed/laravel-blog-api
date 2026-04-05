@@ -91,9 +91,9 @@ class CommentController extends Controller
         ]);
 
         $this->handleMentions($comment);
-        // if(isset($atts['code'])){
-        //     AnalyzeCommentCode::dispatch($comment);
-        // }
+        if(isset($atts['code'])){
+            AnalyzeCommentCode::dispatch($comment);
+        }
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
 

@@ -11,15 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('blogs', function (Blueprint $table) {
+        Schema::create('sections', function (Blueprint $table) {
             $table->id();
-            $table->string('cover_image_path')->nullable();
-            $table->string('reading_time')->nullable();
-            //Author name will be retunred in the blog resource
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('title');
-            $table->text('subtitle');
-            $table->boolean('is_published')->default(false);
+            $table->text('content');
+            $table->unsignedInteger('order');
+            $table->string('image_path')->nullable();
+            $table->foreignId('blog_id')->constrained()->onDelete('cascade');
+            $table->unique(['order','blog_id']);
             $table->timestamps();
         });
     }
@@ -29,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('blogs');
+        Schema::dropIfExists('sections');
     }
 };
