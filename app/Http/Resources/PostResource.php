@@ -15,7 +15,10 @@ class PostResource extends JsonResource
     public function toArray($request)
     {
         $hasCode = !empty($this->code);
-        $hasPhoto = !empty($this->photo);
+        $photos = $this->relationLoaded('photos') ? $this->photos : $this->photos()->get();
+        $firstPhoto = $photos->first();
+        $legacyPhotoUrl = $this->photo ? asset("storage/post_photos/{$this->photo}") : null;
+        $hasPhoto = $firstPhoto !== null || !empty($this->photo);
 
         $type = 'text';
         if ($hasCode && $hasPhoto) {
@@ -32,7 +35,12 @@ class PostResource extends JsonResource
             'body' => $this->body,
             'code' => $this->code,
             'code_language' => $this->code_language,
-            'photo_url' => $hasPhoto ? asset("storage/post_photos/{$this->photo}") : null,
+            'photo_url' => $firstPhoto ? asset("storage/{$firstPhoto->path}") : $legacyPhotoUrl,
+            'photos' => $photos->map(fn ($photo) => [
+                'id' => $photo->id,
+                'url' => asset("storage/{$photo->path}"),
+                'sort_order' => $photo->sort_order,
+            ])->values(),
             'type' => $type,
             'is_published' => $this->is_published,
             'user' => $this->whenLoaded('user', function () {

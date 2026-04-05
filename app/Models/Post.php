@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Storage;
 
 class Post extends Model
 {
@@ -14,6 +15,16 @@ class Post extends Model
     protected static function booted(): void
     {
         static::deleting(function (Post $post) {
+            foreach ($post->photos as $photo) {
+                if (Storage::disk('public')->exists($photo->path)) {
+                    Storage::disk('public')->delete($photo->path);
+                }
+            }
+
+            if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
+                Storage::disk('public')->delete("post_photos/{$post->photo}");
+            }
+
             $post->saves()->delete();
         });
     }
@@ -31,6 +42,11 @@ class Post extends Model
     public function comments()
     {
         return $this->hasMany(Comment::class);
+    }
+
+    public function photos()
+    {
+        return $this->hasMany(PostPhoto::class)->orderBy('sort_order');
     }
 
     public function likes()
