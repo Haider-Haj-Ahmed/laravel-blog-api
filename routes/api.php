@@ -27,6 +27,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Posts
     Route::post('/posts', [PostController::class, 'store']);
+    Route::get('/posts/recommended', [PostController::class, 'recommended'])->middleware('throttle:recommended-feed');
     Route::get('/posts/drafts', [PostController::class, 'drafts']);
     Route::put('/posts/{post}', [PostController::class, 'update']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);

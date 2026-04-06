@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Models\Post;
 use App\Models\Like;
 use App\Services\ActivityService;
+use App\Services\PostRecommendationService;
+use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +19,11 @@ class PostController extends Controller
 {
     use ApiResponseTrait;
 
-    public function __construct(private readonly ActivityService $activityService)
+    public function __construct(
+        private readonly ActivityService $activityService,
+        private readonly PostRecommendationService $postRecommendationService,
+        private readonly RecommendationCacheService $recommendationCacheService
+    )
     {
     }
     /**
@@ -35,6 +41,28 @@ class PostController extends Controller
         return $this->paginatedResponse(
             PostResource::collection($posts),
             'Posts retrieved successfully'
+        );
+    }
+
+    public function recommended(Request $request)
+    {
+        $validated = $request->validate([
+            'page' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:30',
+        ]);
+
+        $page = (int) ($validated['page'] ?? 1);
+        $perPage = isset($validated['per_page']) ? (int) $validated['per_page'] : null;
+
+        $recommendedPosts = $this->postRecommendationService->buildFeed(
+            $request->user(),
+            $page,
+            $perPage
+        );
+
+        return $this->paginatedResponse(
+            PostResource::collection($recommendedPosts),
+            'Recommended posts retrieved successfully'
         );
     }
 
@@ -192,6 +220,8 @@ class PostController extends Controller
                 'post_liked'
             );
         }
+
+        $this->recommendationCacheService->bumpUserVersion($user->id);
 
         // Return updated post with like count
         $post->loadCount('likes');

@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Notifications\UserFollowedNotification;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
     use ApiResponseTrait;
+
+    public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
+    {
+    }
 
     /**
      * Display user by username.
@@ -75,6 +80,8 @@ class UserController extends Controller
         $request->user()->following()->attach($targetUser->id);
         $targetUser->notify(new UserFollowedNotification($request->user()));
 
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+
         Cache::forget("user:{$request->user()->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([
@@ -96,6 +103,9 @@ class UserController extends Controller
         if (! $deleted) {
             return $this->notFoundResponse('You are not following this user');
         }
+
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+
         Cache::forget("user:{$request->user()->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([

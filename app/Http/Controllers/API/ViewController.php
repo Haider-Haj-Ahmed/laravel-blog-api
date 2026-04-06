@@ -7,12 +7,17 @@ use App\Models\Blog;
 use App\Models\Post;
 use App\Models\Profile;
 use App\Models\View;
+use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 
 class ViewController extends Controller
 {
 	use ApiResponseTrait;
+
+	public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
+	{
+	}
 
 	public function store(Request $request)
 	{
@@ -40,6 +45,10 @@ class ViewController extends Controller
 			'viewable_type' => $viewable->getMorphClass(),
 			'viewable_id' => $viewable->getKey(),
 		]);
+
+		if ($validated['type'] === 'post' && $view->wasRecentlyCreated) {
+			$this->recommendationCacheService->bumpUserVersion($request->user()->id);
+		}
 
 		return $this->successResponse([
 			'view_recorded' => true,

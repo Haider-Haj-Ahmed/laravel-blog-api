@@ -55,7 +55,7 @@ class PostResource extends JsonResource
             'comments_count' => $this->when(isset($this->comments_count), $this->comments_count),
             'likes_count' => $this->when(isset($this->likes_count), $this->likes_count),
             //saves count
-            'views_count'=>$this->views->count(),
+            'views_count' => isset($this->views_count) ? (int) $this->views_count : $this->views()->count(),
             'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
             'tags'=>TagResource::collection($this->whenLoaded('tags')),
             'created_at' => $this->created_at->toDateTimeString(),
