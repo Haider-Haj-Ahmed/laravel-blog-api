@@ -35,6 +35,7 @@ class ProfileResource extends JsonResource
             'badge' => $profile?->badge ?? 'junior',
             'posts_count' => $postsCount,
             'blogs_count' => $blogsCount,
+            'views_count' => $this->views()->count(),
             'followers_count' => $followersCount,
             'following_count' => $followingCount,
             'is_following' => $viewer ? $viewer->isFollowing($this->resource) : false,

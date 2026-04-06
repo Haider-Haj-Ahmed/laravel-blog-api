@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\Profile;
 use App\Models\Tag;
+use App\Services\RecommendationCacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class TagController extends Controller
 {
+    public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
+    {
+    }
+
     public function index(){
         $tags=Tag::all();
         return response()->json(['tags'=>$tags]);
@@ -44,6 +49,7 @@ class TagController extends Controller
             return response()->json(['message'=>'Unauthorized'],403);
         }
         $profile->tags()->sync($atts['tags']);
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         return response()->json(['message'=>'Tags updated successfully']);
 
     }
@@ -58,6 +64,7 @@ class TagController extends Controller
             return response()->json(['message'=>'Profile not found'],404);
         }
         $profile->tags()->sync($atts['tags']);
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         return response()->json(['message'=>'Tags updated successfully']);
     }
 }

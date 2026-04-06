@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Blog;
 use App\Models\Post;
 use App\Services\ActivityService;
+use App\Services\RecommendationCacheService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
@@ -22,7 +23,10 @@ class CommentController extends Controller
 {
     use MentionTrait, ApiResponseTrait;
 
-    public function __construct(private readonly ActivityService $activityService) {}
+    public function __construct(
+        private readonly ActivityService $activityService,
+        private readonly RecommendationCacheService $recommendationCacheService
+    ) {}
 
     public function index($postId)
     {
@@ -94,6 +98,11 @@ class CommentController extends Controller
         if(isset($atts['code'])){
             AnalyzeCommentCode::dispatch($comment);
         }
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
 
@@ -200,6 +209,11 @@ class CommentController extends Controller
             $comment->likes--;
             $comment->save();
         }
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
         return response()->json(['message' => 'Like status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
     }
     public function dislike(Request $request, $id)
@@ -228,6 +242,11 @@ class CommentController extends Controller
             $comment->dislikes--;
             $comment->save();
         }
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
         return response()->json(['message' => 'Dislike status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
     }
 

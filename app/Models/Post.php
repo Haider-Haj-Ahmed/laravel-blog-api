@@ -24,14 +24,21 @@ class Post extends Model
             if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
                 Storage::disk('public')->delete("post_photos/{$post->photo}");
             }
-
+            //also comments
+            //$post->comments()->delete();
             $post->saves()->delete();
+            $post->views()->delete();
         });
     }
 
     public function saves(): MorphMany
     {
         return $this->morphMany(Save::class, 'saveable');
+    }
+
+    public function views(): MorphMany
+    {
+        return $this->morphMany(View::class, 'viewable');
     }
 
     public function user()
