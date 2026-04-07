@@ -13,11 +13,8 @@ class MentionedInComment extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    protected $comment;
-
-    public function __construct(Comment $comment)
+    public function __construct(private readonly Comment $comment)
     {
-        $this->comment = $comment;
     }
 
     public function via($notifiable)
@@ -28,24 +25,28 @@ class MentionedInComment extends Notification implements ShouldQueue
     public function toDatabase($notifiable)
     {
         return [
-            'comment_id' => $this->comment->id,
-            'body' => $this->comment->body,
-            'user' => [
+            'type' => 'comment_mentioned',
+            'title' => 'You were mentioned in a comment',
+            'body' => "{$this->comment->user->username} mentioned you in a comment.",
+            'actor' => [
                 'id' => $this->comment->user->id,
                 'username' => $this->comment->user->username,
+                'name' => $this->comment->user->name,
+            ],
+            'entity' => [
+                'type' => 'comment',
+                'id' => $this->comment->id,
+            ],
+            'context' => [
+                'post_id' => $this->comment->post_id,
+                'blog_id' => $this->comment->blog_id,
+                'comment_body' => $this->comment->body,
             ],
         ];
     }
 
     public function toBroadcast($notifiable)
     {
-        return new BroadcastMessage([
-            'comment_id' => $this->comment->id,
-            'body' => $this->comment->body,
-            'user' => [
-                'id' => $this->comment->user->id,
-                'username' => $this->comment->user->username,
-            ],
-        ]);
+        return new BroadcastMessage($this->toDatabase($notifiable));
     }
 }

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Events\PostLiked;
 use App\Http\Requests\StorePostRequest;
 use Illuminate\Http\Request;
 use App\Models\Post;
 use App\Models\Like;
-use App\Services\ActivityService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 use Illuminate\Support\Facades\Storage;
@@ -17,9 +17,6 @@ class PostController extends Controller
 {
     use ApiResponseTrait;
 
-    public function __construct(private readonly ActivityService $activityService)
-    {
-    }
     /**
      * Display a listing of the resource.
      */
@@ -186,11 +183,7 @@ class PostController extends Controller
             ]);
             $isLiked = true;
 
-            $this->activityService->logUserInteraction(
-                $user,
-                $post,
-                'post_liked'
-            );
+            PostLiked::dispatch($post, $user);
         }
 
         // Return updated post with like count

@@ -3,21 +3,17 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Events\BlogLiked;
 use Illuminate\Http\Request;
 use App\Models\Blog;
 use App\Models\BlogLike;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\BlogResource;
 use App\Http\Requests\StoreBlogRequest;
-use App\Services\ActivityService;
 
 class BlogController extends Controller
 {
     use ApiResponseTrait;
-
-    public function __construct(private readonly ActivityService $activityService)
-    {
-    }
 
     /**
      * Display a listing of published blogs.
@@ -123,11 +119,7 @@ class BlogController extends Controller
             ]);
             $isLiked = true;
 
-            $this->activityService->logUserInteraction(
-                $request->user(),
-                $blog,
-                'blog_liked'
-            );
+            BlogLiked::dispatch($blog, $request->user());
         }
 
         $blog->loadCount('likes');
