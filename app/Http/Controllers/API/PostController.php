@@ -162,13 +162,13 @@ class PostController extends Controller
     public function toggleLike($postId)
     {
         $post = Post::find($postId);
-        
+
         if (!$post) {
             return $this->notFoundResponse('Post not found');
         }
 
         $user = request()->user();
-        
+
         $like = Like::where('user_id', $user->id)
             ->where('post_id', $post->id)
             ->first();
@@ -188,7 +188,7 @@ class PostController extends Controller
 
         // Return updated post with like count
         $post->loadCount('likes');
-        
+
         return $this->successResponse([
             'is_liked' => $isLiked,
             'likes_count' => $post->likes_count,
