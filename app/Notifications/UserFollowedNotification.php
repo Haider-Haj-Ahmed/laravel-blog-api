@@ -25,11 +25,18 @@ class UserFollowedNotification extends Notification implements ShouldQueue
     {
         return [
             'type' => 'user_followed',
-            'follower' => [
+            'title' => 'New follower',
+            'body' => "{$this->follower->username} started following you.",
+            'actor' => [
                 'id' => $this->follower->id,
                 'username' => $this->follower->username,
                 'name' => $this->follower->name,
             ],
+            'entity' => [
+                'type' => 'user',
+                'id' => $this->follower->id,
+            ],
+            'context' => [],
         ];
     }
 
