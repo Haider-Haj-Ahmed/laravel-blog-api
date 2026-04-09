@@ -159,4 +159,19 @@ class ProfileController extends Controller
             'User blogs retrieved successfully'
         );
     }
+     public function viewrs(Request $request,$id){
+        $profile = Profile::find($id);
+        if (!$profile) {
+            return $this->notFoundResponse('Profile not found');
+        }
+        return response()->json([
+            'viewers' => $profile->views()->with('user')->get()->map(function ($view) {
+                return [
+                    'id' => $view->user_id,
+                    'username' => $view->user->username,
+                    'viewed_at' => $view->created_at->toDateTimeString(),
+                ];
+            }),
+        ]);
+    }
 }

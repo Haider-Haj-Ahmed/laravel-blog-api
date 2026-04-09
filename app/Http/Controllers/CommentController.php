@@ -12,15 +12,23 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Blog;
 use App\Models\Post;
 use App\Services\ActivityService;
+use App\Services\RecommendationCacheService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
 use App\Events\PostCommented;
 use App\Events\BlogCommented;
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 class CommentController extends Controller
 {
     use MentionTrait, ApiResponseTrait;
+
+    public function __construct(
+        private readonly ActivityService $activityService,
+        private readonly RecommendationCacheService $recommendationCacheService
+    ) {}
 
     public function index($postId)
     {
@@ -69,13 +77,13 @@ class CommentController extends Controller
 
     public function store(Request $request)
     {
-        $atts=$request->validate([
+        $atts = $request->validate([
             'body' => 'required|string',
             'post_id' => 'nullable|exists:posts,id|required_without:blog_id|prohibited_with:blog_id',
             'blog_id' => 'nullable|exists:blogs,id|required_without:post_id|prohibited_with:post_id',
-            'code'=>'nullable|string',
+            'code' => 'nullable|string',
             'code_language' => 'nullable|string|max:50',
-            'parent_id'=>'nullable|exists:comments,id',
+            'parent_id' => 'nullable|exists:comments,id',
         ]);
 
         $comment = Comment::create([
@@ -89,9 +97,14 @@ class CommentController extends Controller
         ]);
 
         $this->handleMentions($comment);
-        // if(isset($atts['code'])){
-        //     AnalyzeCommentCode::dispatch($comment);
-        // }
+        if(isset($atts['code'])){
+            AnalyzeCommentCode::dispatch($comment);
+        }
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
 
@@ -135,9 +148,9 @@ class CommentController extends Controller
             return $this->forbiddenResponse('You are not authorized to update this comment');
         }
 
-        $atts=$request->validate([
+        $atts = $request->validate([
             'body' => 'nullable|string',
-            'code'=>'nullable|string',
+            'code' => 'nullable|string',
             'code_language' => 'nullable|string|max:50',
         ]);
         preg_match_all('/@([\w\-]+)/', $comment->body, $matches);
@@ -149,8 +162,8 @@ class CommentController extends Controller
             'code_language' => array_key_exists('code_language', $atts) ? $atts['code_language'] : $comment->code_language,
         ]);
 
-        $this->handleMentions($comment,$oldUsernames);
-        if(isset($atts['code'])){
+        $this->handleMentions($comment, $oldUsernames);
+        if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
         }
 
@@ -162,81 +175,94 @@ class CommentController extends Controller
             'Comment updated successfully'
         );
     }
-    public function like(Request $request,$id){
-        $comment=Comment::find($id);
-        if(!$comment){
-            return response()->json(['message'=>'Comment not found'],404);
+    public function like(Request $request, $id)
+    {
+        $comment = Comment::find($id);
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found'], 404);
         }
-        $statusL=$comment->likes()->where('user_id', $request->user()->id)->exists();
-        $statusD=$comment->dislikes()->where('user_id', $request->user()->id)->exists();
-        if(!$statusL){
-            if(!$statusD){
-                $comment->likes()->attach($request->user()->id,['is_like'=>true]);
+        $statusL = $comment->likes()->where('user_id', $request->user()->id)->exists();
+        $statusD = $comment->dislikes()->where('user_id', $request->user()->id)->exists();
+        if (!$statusL) {
+            if (!$statusD) {
+                $comment->likes()->attach($request->user()->id, ['is_like' => true]);
                 $comment->likes++;
                 $comment->save();
                 CommentLiked::dispatch($comment, $request->user());
-            }else{
+            } else {
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => true]);
                 $comment->dislikes--;
                 $comment->likes++;
                 $comment->save();
                 CommentLiked::dispatch($comment, $request->user());
             }
-        }else{
+        } else {
             $comment->likes()->detach($request->user()->id);
             $comment->likes--;
             $comment->save();
         }
-        return response()->json(['message'=>'Like status updated','likes'=>$comment->likes,'dislikes'=>$comment->dislikes],200);
-    }
-    public function dislike(Request $request,$id){
-        $comment=Comment::find($id);
-        if(!$comment){
-            return response()->json(['message'=>'Comment not found'],404);
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
-        $statusL=$comment->likes()->where('user_id', $request->user()->id)->exists();
-        $statusD=$comment->dislikes()->where('user_id', $request->user()->id)->exists();
-        if(!$statusD){
-            if(!$statusL){
-                $comment->dislikes()->attach($request->user()->id,['is_like'=>false]);
+
+        return response()->json(['message' => 'Like status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
+    }
+    public function dislike(Request $request, $id)
+    {
+        $comment = Comment::find($id);
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found'], 404);
+        }
+        $statusL = $comment->likes()->where('user_id', $request->user()->id)->exists();
+        $statusD = $comment->dislikes()->where('user_id', $request->user()->id)->exists();
+        if (!$statusD) {
+            if (!$statusL) {
+                $comment->dislikes()->attach($request->user()->id, ['is_like' => false]);
                 $comment->dislikes++;
                 $comment->save();
                 CommentDisliked::dispatch($comment, $request->user());
-            }else{
+            } else {
                 DB::table('comment_user_likes')->where('comment_id', $comment->id)->where('user_id', $request->user()->id)->update(['is_like' => false]);
                 $comment->likes--;
                 $comment->dislikes++;
                 $comment->save();
                 CommentDisliked::dispatch($comment, $request->user());
             }
-        }else{
+        } else {
             $comment->dislikes()->detach($request->user()->id);
             $comment->dislikes--;
             $comment->save();
         }
-        return response()->json(['message'=>'Dislike status updated','likes'=>$comment->likes,'dislikes'=>$comment->dislikes],200);
+
+        if ($comment->post_id) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
+        return response()->json(['message' => 'Dislike status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
     }
 
-    public function getChildren(Request $request,$id){
-        $comment=Comment::find($id);
-        if(!$comment){
-            return response()->json(['message'=>'Comment Not Found'],404);
+    public function getChildren(Request $request, $id)
+    {
+        $comment = Comment::find($id);
+        if (!$comment) {
+            return response()->json(['message' => 'Comment Not Found'], 404);
         }
         $perPage = 3;
         $page = $request->get('page', 1);
-        if($page < 1){
-            $page=1;
+        if ($page < 1) {
+            $page = 1;
         }
-        $allCount=$comment->children()->count();
-        $allchildren=[];
-        for ($i=$page;$i>0;$i--){
+        $allCount = $comment->children()->count();
+        $allchildren = [];
+        for ($i = $page; $i > 0; $i--) {
             $children = $comment->children()
-            ->latest()
-            ->paginate($perPage, ['*'], 'page', $i);
-            $allchildren=array_merge($allchildren,$children->items());
+                ->latest()
+                ->paginate($perPage, ['*'], 'page', $i);
+            $allchildren = array_merge($allchildren, $children->items());
         }
-        
-        return response()->json(['data'=>$allchildren,'message'=>'Child comments retrieved successfully','num of total pages'=>ceil($allCount/$perPage)],200);
+
+        return response()->json(['data' => $allchildren, 'message' => 'Child comments retrieved successfully', 'num of total pages' => ceil($allCount / $perPage)], 200);
     }
 
     public function highlight(Request $request, $id)
@@ -257,6 +283,65 @@ class CommentController extends Controller
         CommentHighlighted::dispatch($comment, $request->user());
 
         return $this->successResponse(null, 'Comment highlighted successfully');
+    }
+    public function suggest(Request $request)
+    {
+        $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:50'],
+        ]);
+
+        $search = $request->string('q')->trim()->lower();
+        $authUser = $request->user();
+
+        // Cache both lists — note pluck('id') since these are belongsToMany returning User models
+        $followingIds = Cache::remember(
+            "user:{$authUser->id}:following_ids",
+            now()->addHour(),
+            fn() => $authUser->following()->pluck('users.id')
+        );
+
+        $followerIds = Cache::remember(
+            "user:{$authUser->id}:follower_ids",
+            now()->addHour(),
+            fn() => $authUser->followers()->pluck('users.id')
+        );
+
+        $knownIds = $followingIds->merge($followerIds)->unique();
+
+        // First: search within known users
+        $knownUsers = User::query()
+            ->with('profile:user_id,avatar')
+            ->whereIn('id', $knownIds)
+            ->where('username', 'like', $search . '%')
+            ->select('id', 'name', 'username')
+            ->limit(5)
+            ->get();
+
+        $results = collect($knownUsers);
+
+        // Second: fill remaining slots from everyone else
+        if ($results->count() < 5) {
+            $excludeIds = $knownIds->push($authUser->id);
+
+            $otherUsers = User::query()
+                ->with('profile:user_id,avatar')
+                ->whereNotIn('id', $excludeIds)
+                ->where('username', 'like', $search . '%')
+                ->select('id', 'name', 'username')
+                ->limit(5 - $results->count())
+                ->get();
+
+            $results = $results->merge($otherUsers);
+        }
+
+        $formatted = $results->map(fn($user) => [
+            'id'       => $user->id,
+            'name'     => $user->name,
+            'username' => $user->username,
+            'avatar'   => $user->profile?->avatar,
+        ]);
+
+        return response()->json(['data' => $formatted]);
     }
 
     // public function destroy($id)

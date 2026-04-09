@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Profile extends Model
 {
@@ -27,6 +28,13 @@ class Profile extends Model
         'settings' => 'array',
         'last_seen_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Profile $profile) {
+            $profile->views()->delete();
+        });
+    }
 
     public function user()
     {
@@ -53,5 +61,10 @@ class Profile extends Model
     }
     public function tags(){
         return $this->belongsToMany(Tag::class,'profile_tag');
+    }
+
+    public function views(): MorphMany
+    {
+        return $this->morphMany(View::class, 'viewable');
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Resources\SavedItemResource;
 use App\Models\Blog;
 use App\Models\Post;
 use App\Models\Save;
+use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,10 @@ use Illuminate\Validation\Rule;
 class SavedController extends Controller
 {
     use ApiResponseTrait;
+
+    public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
+    {
+    }
 
     /**
      * List saved items (posts, blogs, or both). Instagram-style: one "Saved" feed; filter by `type`.
@@ -93,6 +98,10 @@ class SavedController extends Controller
             ],
         );
 
+        if ($model instanceof Post) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
+
         return $this->successResponse(
             [
                 'saved' => true,
@@ -127,6 +136,10 @@ class SavedController extends Controller
 
         if (! $deleted) {
             return $this->notFoundResponse('Not in saved list');
+        }
+
+        if ($model instanceof Post) {
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
 
         return $this->successResponse(null, 'Removed from saved');

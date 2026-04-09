@@ -10,6 +10,10 @@ use App\Models\BlogLike;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\BlogResource;
 use App\Http\Requests\StoreBlogRequest;
+use App\Models\Section;
+use App\Services\ActivityService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BlogController extends Controller
 {
@@ -39,12 +43,59 @@ class BlogController extends Controller
     public function store(StoreBlogRequest $request)
     {
         // $this->authorize('create', Blog::class);
-
-        $blog = $request->user()->blogs()->create($request->validated());
-        if($request->has('tags')){
-            $blog->tags()->sync($request->input('tags'));
+        $storedPaths = [];
+        try{
+        $blog=DB::transaction(function () use ($request, &$storedPaths) {
+            $blog = $request->user()->blogs()->create([
+                'user_id' => $request->user()->id,
+                'title' => $request->input('title'),
+                'subtitle' => $request->input('subtitle'),
+                'reading_time'=>$request->input('reading_time'),
+                'is_published' => $request->input('is_published', false),
+            ]);
+            if($request->hasFile('cover_image')){
+                $path = $request->file('cover_image')->store('cover_images', 'public');
+                $storedPaths[] = $path;
+                $blog->cover_image_path = $path;
+                $blog->save();
+            }
+            if($request->has('tags')){
+                $blog->tags()->sync($request->input('tags'));
+            }
+            foreach ($request->validated()['sections'] as $index => $sectionData) {
+                Log::error($sectionData);
+                $section = $blog->sections()->create([
+                    'title' => $sectionData['title'],
+                    'content' => $sectionData['content'],
+                    'order' => $sectionData['order'],
+                ]);
+                $image = $request->file("sections.$index.image");
+                if ($image) {
+                    $path = $image->store('section_images', 'public');
+                    $storedPaths[] = $path;
+                    $section->image_path = $path;
+                    $section->save();
+                }
+                // $blog->sections()->save($section);
+            }
+            return $blog;
+        });
+        }catch(\Exception $e){
+            Log::error('Error creating blog: '.$e->getMessage());
+            
+            foreach ($storedPaths as $path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+            }
+            
+            return $this->errorResponse('Failed to create blog', 500);
         }
+
+        // $blog = $request->user()->blogs()->create($request->validated());
+        // if($request->has('tags')){
+        //     $blog->tags()->sync($request->input('tags'));
+        // }
         $blog->loadCount(['comments', 'likes']);
+        $blog->load(['tags','sections']);
 
         return $this->createdResponse(
             new BlogResource($blog->load('user')),
@@ -64,6 +115,7 @@ class BlogController extends Controller
         }
 
         $blog->loadCount(['comments', 'likes']);
+        $blog->load(['tags','sections']);
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog retrieved successfully');
     }
@@ -143,5 +195,20 @@ class BlogController extends Controller
             BlogResource::collection($blogs),
             'Draft blogs retrieved successfully'
         );
+    }
+    public function viewrs(Request $request,$id){
+        $blog = Blog::find($id);
+        if (!$blog) {
+            return $this->notFoundResponse('Blog not found');
+        }
+        return response()->json([
+            'viewers' => $blog->views()->with('user')->get()->map(function ($view) {
+                return [
+                    'id' => $view->user_id,
+                    'username' => $view->user->username,
+                    'viewed_at' => $view->created_at->toDateTimeString(),
+                ];
+            }),
+        ]);
     }
 }

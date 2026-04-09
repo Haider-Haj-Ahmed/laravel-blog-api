@@ -13,7 +13,9 @@ class Blog extends Model
     protected $fillable = [
         'user_id',
         'title',
-        'body',
+        'subtitle',
+        'reading_time',
+        'cover_image_path',
         'is_published',
     ];
 
@@ -25,12 +27,18 @@ class Blog extends Model
     {
         static::deleting(function (Blog $blog) {
             $blog->saves()->delete();
+            $blog->views()->delete();
         });
     }
 
     public function saves(): MorphMany
     {
         return $this->morphMany(Save::class, 'saveable');
+    }
+
+    public function views(): MorphMany
+    {
+        return $this->morphMany(View::class, 'viewable');
     }
 
     public function user()
@@ -63,5 +71,9 @@ class Blog extends Model
         }
 
         return $this->likedByUsers()->where('user_id', $user->id)->exists();
+    }
+    public function sections()
+    {
+        return $this->hasMany(Section::class);
     }
 }
