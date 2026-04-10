@@ -20,7 +20,7 @@ class ProfileController extends Controller
     public function show($username)
     {
         $user = User::where('username', $username)
-            ->with('profile')
+            ->with(['profile.tags'])
             ->withCount([
                 'followers',
                 'following',
@@ -102,7 +102,7 @@ class ProfileController extends Controller
         $profile->fill($validated);
         $profile->save();
 
-        $user->load('profile')->loadCount([
+        $user->load('profile.tags')->loadCount([
             'followers',
             'following',
             'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),

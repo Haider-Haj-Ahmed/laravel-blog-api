@@ -16,6 +16,7 @@ class ProfileResource extends JsonResource
     {
         $profile = $this->profile;
         $viewer = auth('sanctum')->user();
+        $tags = $profile?->relationLoaded('tags') ? $profile->tags : ($profile ? $profile->tags()->get() : collect());
         $postsCount = $this->published_posts_count ?? $this->posts()->where('is_published', true)->count();
         $blogsCount = $this->published_blogs_count ?? $this->blogs()->where('is_published', true)->count();
         $followersCount = $this->followers_count ?? $this->followers()->count();
@@ -41,7 +42,7 @@ class ProfileResource extends JsonResource
             'is_following' => $viewer ? $viewer->isFollowing($this->resource) : false,
             'joined_at' => $this->created_at,
             'last_seen_at' => $profile?->last_seen_at,
-            'tags' => $profile ?? TagResource::collection($this->tags()->get()),
+            'tags' => $tags,
         ];
     }
 }
