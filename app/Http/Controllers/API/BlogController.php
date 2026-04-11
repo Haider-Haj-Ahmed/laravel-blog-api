@@ -42,7 +42,7 @@ class BlogController extends Controller
      */
     public function store(StoreBlogRequest $request)
     {
-        // $this->authorize('create', Blog::class);
+        $this->authorize('create', Blog::class);
         $storedPaths = [];
         try{
         $blog=DB::transaction(function () use ($request, &$storedPaths) {

@@ -29,8 +29,12 @@ class SearchController extends Controller
                 })->latest();
         });
 
-        $postsQuery = Post::where('title', 'like', '%'.$atts['query'].'%')->latest();
-        $blogsQuery = Blog::where('title', 'like', '%'.$atts['query'].'%')->latest();
+        $postsQuery = Post::where('is_published', true)
+            ->where('title', 'like', '%'.$atts['query'].'%')
+            ->latest();
+        $blogsQuery = Blog::where('is_published', true)
+            ->where('title', 'like', '%'.$atts['query'].'%')
+            ->latest();
 
         if (!empty($atts['tags'])) {
             $tags = $atts['tags'];
