@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserSummaryResource;
 use App\Notifications\UserFollowedNotification;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -23,13 +24,15 @@ class UserController extends Controller
      */
     public function showByUsername($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::where('username', $username)
+            ->with('profile')
+            ->first();
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
 
-        return $this->successResponse($user, 'User retrieved successfully');
+        return $this->successResponse(new UserSummaryResource($user), 'User retrieved successfully');
     }
 
     /**
