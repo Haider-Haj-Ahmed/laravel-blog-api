@@ -8,7 +8,7 @@ use App\Models\Otp;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Notifications\OtpNotification;
 use App\Traits\ApiResponseTrait;
 
@@ -78,18 +78,37 @@ class OtpController extends Controller
         ]);
 
         $user = User::findOrFail($request->user_id);
+        if ($user->email_verified_at || $user->phone_verified_at) {
+            return $this->validationErrorResponse([
+                'user_id' => ['This account is already verified.'],
+            ]);
+        }
 
-        // throttle resends
+        $channel = $request->channel ?? 'email';
+        $throttleKey = sprintf('otp-resend:%s:%s:%s', $user->id, $channel, $request->ip());
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            return $this->errorResponse(
+                'Too many OTP resend attempts. Please try again later.',
+                429,
+                ['retry_after' => RateLimiter::availableIn($throttleKey)]
+            );
+        }
+
         $plain = $this->generateCode();
         $hashed = Hash::make($plain);
         $expiresAt = Carbon::now()->addMinutes($this->ttlMinutes);
 
+        Otp::where('user_id', $user->id)->delete();
+
         $otp = Otp::create([
             'user_id' => $user->id,
             'code' => $hashed,
-            'channel' => $request->channel ?? 'email',
+            'channel' => $channel,
             'expires_at' => $expiresAt,
         ]);
+
+        RateLimiter::hit($throttleKey, $this->ttlMinutes * 60);
 
         // notify
         $notification = new OtpNotification($plain, $otp->channel);

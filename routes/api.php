@@ -19,8 +19,8 @@ use App\Http\Controllers\API\ViewController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/otp/verify', [OtpController::class, 'verify']);
-Route::post('/otp/resend', [OtpController::class, 'resend']);
+Route::post('/otp/verify', [OtpController::class, 'verify'])->middleware('throttle:10,1');
+Route::post('/otp/resend', [OtpController::class, 'resend'])->middleware('throttle:5,10');
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
