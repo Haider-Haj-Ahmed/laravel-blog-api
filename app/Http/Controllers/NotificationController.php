@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponseTrait;
 
@@ -11,9 +12,19 @@ class NotificationController extends Controller
     // عرض كل الإشعارات للمستخدم
     public function index(Request $request)
     {
-        $notifications = $request->user()->notifications()->paginate(15);
+        $notifications = $request->user()->notifications()->latest()->paginate(15);
         
-        return $this->paginatedResponse($notifications, 'Notifications retrieved successfully');
+        return $this->paginatedResponse(
+            NotificationResource::collection($notifications),
+            'Notifications retrieved successfully'
+        );
+    }
+
+    public function unreadCount(Request $request)
+    {
+        return $this->successResponse([
+            'unread_count' => $request->user()->unreadNotifications()->count(),
+        ], 'Unread notifications count retrieved successfully');
     }
 
     // تعليم إشعار واحد كمقروء

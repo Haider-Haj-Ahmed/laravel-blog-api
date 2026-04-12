@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserSummaryResource;
 use App\Models\Blog;
 use App\Models\Post;
-use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,14 +23,17 @@ class SearchController extends Controller
         $usersQuery = User::where(function ($q) use ($atts) {
             $q->where('name', 'like', '%'.$atts['query'].'%')
                 ->orWhere('username', 'like', '%'.$atts['query'].'%')
-                ->orWhere('email', 'like', '%'.$atts['query'].'%')
                 ->orWhereHas('profile', function ($q2) use ($atts) {
                     $q2->where('bio', 'like', '%'.$atts['query'].'%');
                 })->latest();
         });
 
-        $postsQuery = Post::where('title', 'like', '%'.$atts['query'].'%')->latest();
-        $blogsQuery = Blog::where('title', 'like', '%'.$atts['query'].'%')->latest();
+        $postsQuery = Post::where('is_published', true)
+            ->where('title', 'like', '%'.$atts['query'].'%')
+            ->latest();
+        $blogsQuery = Blog::where('is_published', true)
+            ->where('title', 'like', '%'.$atts['query'].'%')
+            ->latest();
 
         if (!empty($atts['tags'])) {
             $tags = $atts['tags'];
@@ -57,7 +60,7 @@ class SearchController extends Controller
         // $blogs = $blogsQuery->with('tags')->skip($offset)->take($perPage)->get();
         if($atts['tab']=='users'){
             $users = $usersQuery->with('profile')->skip(0)->take($perPage*$page)->get();
-            return response()->json(['users'=>$users]);
+            return response()->json(['users' => UserSummaryResource::collection($users)]);
         }elseif($atts['tab']=='posts'){
             $posts = $postsQuery->with('tags')->skip(0)->take($perPage*$page)->get();
             return response()->json(['posts'=>$posts]);

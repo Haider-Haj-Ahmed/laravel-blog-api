@@ -93,6 +93,10 @@ class AuthController extends Controller
             return $this->unauthorizedResponse('Invalid credentials');
         }
 
+        if (! $user->email_verified_at && ! $user->phone_verified_at) {
+            return $this->forbiddenResponse('Account verification is required before login.');
+        }
+
         // Ensure user has a profile (for legacy users)
         if (!$user->profile) {
             Profile::create([

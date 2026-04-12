@@ -25,10 +25,10 @@ class OtpNotification extends Notification implements ShouldQueue
     public function via($notifiable)
     {
         if ($this->channel === 'sms' && !empty($notifiable->phone)) {
-            return ['database']; // keep db for record; SMS handled in toSms below
+            return [];
         }
 
-        return ['mail', 'database'];
+        return ['mail'];
     }
 
     public function toMail($notifiable)
@@ -38,17 +38,6 @@ class OtpNotification extends Notification implements ShouldQueue
             ->line('Your OTP code is: ' . $this->otpCode)
             ->line('It will expire in 10 minutes.')
             ->line('If you did not request this, ignore this message.');
-    }
-
-    // If using Twilio, send SMS here (alternative: create a queued job)
-    public function toDatabase($notifiable)
-    {
-        return [
-            'message' => 'OTP sent',
-            // Store a masked version only (last 2 digits) to avoid keeping full OTP in DB
-            'otp_masked' => strlen($this->otpCode) >= 2 ? substr($this->otpCode, -2) : $this->otpCode,
-            'channel' => $this->channel,
-        ];
     }
 
     // helper that can be called from controller to send SMS via Twilio

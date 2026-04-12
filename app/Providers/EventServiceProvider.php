@@ -8,11 +8,18 @@ use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentVerified;
 use App\Events\CommentHighlighted;
+use App\Events\PostLiked;
+use App\Events\BlogLiked;
+use App\Events\PostCommented;
+use App\Events\BlogCommented;
 use App\Listeners\AwardPointsForLike;
 use App\Listeners\DeductPointsForDislike;
 use App\Listeners\AwardPointsForVerification;
 use App\Listeners\AwardPointsForHighlight;
 use App\Listeners\LogCommentEventActivity;
+use App\Listeners\SendCommentEventNotification;
+use App\Listeners\LogContentEventActivity;
+use App\Listeners\SendContentEventNotification;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -25,18 +32,38 @@ class EventServiceProvider extends ServiceProvider
         CommentLiked::class => [
             AwardPointsForLike::class,
             LogCommentEventActivity::class,
+            SendCommentEventNotification::class,
         ],
         CommentDisliked::class => [
             DeductPointsForDislike::class,
             LogCommentEventActivity::class,
+            SendCommentEventNotification::class,
         ],
         CommentVerified::class => [
             AwardPointsForVerification::class,
             LogCommentEventActivity::class,
+            SendCommentEventNotification::class,
         ],
         CommentHighlighted::class => [
             AwardPointsForHighlight::class,
             LogCommentEventActivity::class,
+            SendCommentEventNotification::class,
+        ],
+        PostLiked::class => [
+            LogContentEventActivity::class,
+            SendContentEventNotification::class,
+        ],
+        BlogLiked::class => [
+            LogContentEventActivity::class,
+            SendContentEventNotification::class,
+        ],
+        PostCommented::class => [
+            LogContentEventActivity::class,
+            SendContentEventNotification::class,
+        ],
+        BlogCommented::class => [
+            LogContentEventActivity::class,
+            SendContentEventNotification::class,
         ],
     ];
 

@@ -16,6 +16,8 @@ use App\Services\RecommendationCacheService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
+use App\Events\PostCommented;
+use App\Events\BlogCommented;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
@@ -37,7 +39,7 @@ class CommentController extends Controller
 
         if ($comments->isEmpty()) {
             return $this->successResponse([], 'No comments found for this post');
-        }
+        }   
 
         return $this->paginatedResponse(
             CommentResource::collection($comments),
@@ -109,24 +111,14 @@ class CommentController extends Controller
         if ($comment->post_id) {
             $post = Post::find($comment->post_id);
             if ($post) {
-                $this->activityService->logUserInteraction(
-                    $request->user(),
-                    $post,
-                    'post_commented',
-                    ['comment_id' => $comment->id]
-                );
+                PostCommented::dispatch($post, $comment, $request->user());
             }
         }
 
         if ($comment->blog_id) {
             $blog = Blog::find($comment->blog_id);
             if ($blog) {
-                $this->activityService->logUserInteraction(
-                    $request->user(),
-                    $blog,
-                    'blog_commented',
-                    ['comment_id' => $comment->id]
-                );
+                BlogCommented::dispatch($blog, $comment, $request->user());
             }
         }
 
