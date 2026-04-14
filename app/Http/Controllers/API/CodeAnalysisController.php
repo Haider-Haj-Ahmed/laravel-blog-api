@@ -5,11 +5,14 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Services\DeepSeekService;
 use App\Services\GeminiService;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class CodeAnalysisController extends Controller
 {
+    use ApiResponseTrait;
+
     // public function analyze(Request $request, DeepSeekService $deepseek)
     // {
     //     $request->validate([
@@ -56,10 +59,10 @@ class CodeAnalysisController extends Controller
             $label = 'UNKNOWN';
         }
 
-        return response()->json([
+        return $this->successResponse([
             'label' => $label,
             'explanation' => $parsed['explanation'] ?? null,
             'raw' => $result
-        ]);
+        ], 'Code analysis completed successfully');
     }
 }

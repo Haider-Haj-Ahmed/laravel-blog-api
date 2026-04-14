@@ -7,18 +7,21 @@ use App\Models\Post;
 use App\Models\Profile;
 use App\Models\Tag;
 use App\Services\RecommendationCacheService;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class TagController extends Controller
 {
+    use ApiResponseTrait;
+
     public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
     {
     }
 
     public function index(){
         $tags=Tag::all();
-        return response()->json(['tags'=>$tags]);
+        return $this->successResponse($tags, 'Tags retrieved successfully');
     }
     public function updatePost(Request $request,$id){
         $atts=$request->validate([
@@ -27,13 +30,13 @@ class TagController extends Controller
         ]);
         $post=Post::find($id);
         if(!$post){
-            return response()->json(['message'=>'Post not found'],404);
+            return $this->notFoundResponse('Post not found');
         }
         if($post->user_id!=$request->user()->id){
-            return response()->json(['message'=>'Unauthorized'],403);
+            return $this->forbiddenResponse('Unauthorized');
         }
         $post->tags()->sync($atts['tags']);
-        return response()->json(['message'=>'Tags updated successfully']);
+        return $this->successResponse(null, 'Tags updated successfully');
 
     }
     public function updateProfile(Request $request,$id){
@@ -43,14 +46,14 @@ class TagController extends Controller
         ]);
         $profile=Profile::find($id);
         if(!$profile){
-            return response()->json(['message'=>'Profile not found'],404);
+            return $this->notFoundResponse('Profile not found');
         }
         if($profile->user_id!=$request->user()->id){
-            return response()->json(['message'=>'Unauthorized'],403);
+            return $this->forbiddenResponse('Unauthorized');
         }
         $profile->tags()->sync($atts['tags']);
         $this->recommendationCacheService->bumpUserVersion($request->user()->id);
-        return response()->json(['message'=>'Tags updated successfully']);
+        return $this->successResponse(null, 'Tags updated successfully');
 
     }
     public function survy(Request $request){
@@ -61,10 +64,10 @@ class TagController extends Controller
         Log::error($request->user()->id);
         $profile=Profile::where('user_id',$request->user()->id)->first();
         if(!$profile){
-            return response()->json(['message'=>'Profile not found'],404);
+            return $this->notFoundResponse('Profile not found');
         }
         $profile->tags()->sync($atts['tags']);
         $this->recommendationCacheService->bumpUserVersion($request->user()->id);
-        return response()->json(['message'=>'Tags updated successfully']);
+        return $this->successResponse(null, 'Tags updated successfully');
     }
 }

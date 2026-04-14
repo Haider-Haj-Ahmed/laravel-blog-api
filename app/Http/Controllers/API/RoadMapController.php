@@ -4,18 +4,21 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\RoadMap;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 
 class RoadMapController extends Controller
 {
+    use ApiResponseTrait;
+
     public function index(){
-        return response()->json(['data'=>RoadMap::all()],200);
+        return $this->successResponse(RoadMap::all(), 'Road maps retrieved successfully');
     }
     public function show($id){
         $roadMap = RoadMap::with('nodes')->find($id);
         if(!$roadMap){
-            return response()->json(['message'=>'RoadMap not found'],404);
+            return $this->notFoundResponse('RoadMap not found');
         }
-        return response()->json(['data'=>$roadMap],200);
+        return $this->successResponse($roadMap, 'Road map retrieved successfully');
     }
 }
