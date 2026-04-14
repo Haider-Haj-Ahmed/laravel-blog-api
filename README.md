@@ -1,229 +1,130 @@
-# TeckTalk — IT Blog API
+# TechTalk API
+
+Laravel REST API for TechTalk mobile clients and admin tooling.
 
 ## Overview
 
-**TeckTalk** is an IT-focused blog platform. This repository is the **Laravel REST API** that powers the **TeckTalk mobile app** and works alongside a **web admin dashboard** for operations and content management.
+- Framework: Laravel 12, PHP 8.2+
+- Auth: Sanctum bearer tokens
+- Admin: Filament panel at `/admin`
+- API prefix: `/api`
 
-- **Mobile app**: consumes JSON under `/api/*` (Bearer token via Laravel Sanctum).
-- **Dashboard**: [Filament](https://filamentphp.com/) v4 admin panel at **`/admin`** (session auth, `web` guard) — currently includes **Users** and **Road maps** resources.
+## Auth and onboarding
 
----
+- `POST /api/register`: creates user + profile and sends OTP
+- `POST /api/otp/verify`: verifies OTP and returns `access_token`
+- `POST /api/otp/resend`: resends OTP (`user_id`, optional `channel`)
+- `POST /api/login`: requires account already verified
+- `POST /api/logout`: revokes current user tokens (auth required)
 
-## Tech stack
+## Data model highlights
 
-| Layer | Technology |
-|--------|------------|
-| Framework | Laravel **12** (PHP **8.2+**) |
-| API auth | Laravel **Sanctum** |
-| Admin UI | **Filament** 4.x |
-| DB | MySQL (typical; configure in `.env`) |
-| Realtime | Pusher (notifications / broadcasting where configured) |
+- Posts and blogs support likes and comments.
+- Saves are polymorphic bookmarks for `post` and `blog`.
+- Views are polymorphic records for `post`, `blog`, and `profile`.
+- Tags are reusable and can be attached to posts/blogs/profile.
 
----
+## API route inventory (from `routes/api.php`)
 
-## Features (as implemented)
+### Public routes
 
-- **Auth**: register, login, logout; **OTP** verify/resend for onboarding flows.
-- **Feed posts**: CRUD (create/update/delete require auth); public index/show; optional **code** + **photo**; response includes a computed **`type`** for UI widgets (`text`, `text_photo`, `text_code`, `text_code_photo`).
-- **Post likes**: toggle like per user (`likes` table).
-- **Comments** on posts: create/update; nested replies via `parent_id`; like/dislike; optional **code** block; **`type`** in JSON (`text` or `text_code`); **@mentions** in comment body with notifications.
-- **Blogs**: long-form articles (separate from feed posts); publish flag; create restricted by profile **badge** (expert) via policy.
-- **Profiles**: per-user profile (bio, avatar, cover, links, ranking/badge); public profile by username; authenticated profile update (multipart uploads).
-- **Notifications**: list, mark read, mark all read (database notifications).
-- **Saved (bookmarks)**: polymorphic **`saves`** table for published **posts** and **blogs** (Instagram-style; more kinds can be added via `Relation::morphMap` later). List with `?type=post|blog|all`.
-- **Extras** (public or utility): code compile proxy, UML generation, code analysis (testing), **road maps** API, Filament-managed road maps in admin.
-
----
-
-## Post & comment `type` (for the mobile UI)
-
-Responses use a **`type`** string so the app can pick the right component.
-
-**Posts** (`PostResource`): derived from stored `code` and `photo` filename.
-
-| `type` | Meaning |
-|--------|---------|
-| `text` | Body only |
-| `text_photo` | Body + image (`photo_url`) |
-| `text_code` | Body + `code` |
-| `text_code_photo` | Body + `code` + image |
-
-**Comments** (`CommentResource`):
-
-| `type` | Meaning |
-|--------|---------|
-| `text` | Body only (may still include `@mentions` in `body`) |
-| `text_code` | Body + `code` |
-
-Creating a post with a photo uses **multipart** form data; send `photo` as a file. See `StorePostRequest` and `PostController`.
-
----
-
-## API base URL
-
-All routes in `routes/api.php` are served with the **`/api` prefix** (Laravel default).
-
-Example: `https://your-domain.com/api/posts`
-
----
-
-## Authentication
-
-1. `POST /api/register` — creates user (+ profile) and OTP flow as implemented in `AuthController`.
-2. `POST /api/login` — returns Sanctum **`access_token`** (Bearer).
-3. Send header: `Authorization: Bearer {token}` on protected routes.
-4. `POST /api/logout` — revokes tokens (requires auth).
-
-OTP:
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/register` | Register user and trigger OTP flow |
+| POST | `/api/login` | Login (verified account required) |
 | POST | `/api/otp/verify` | Verify OTP |
 | POST | `/api/otp/resend` | Resend OTP |
+| GET | `/api/posts` | Published posts list |
+| GET | `/api/posts/{post}` | Post details |
+| GET | `/api/posts/{post}/comments` | Post comments |
+| GET | `/api/blogs/{blog}/comments` | Blog comments |
+| GET | `/api/blogs` | Published blogs list |
+| GET | `/api/blogs/{blog}` | Blog details |
+| GET | `/api/users/{username}` | User summary |
+| GET | `/api/users/{username}/profile` | Public profile |
+| GET | `/api/users/{username}/posts` | User published posts |
+| GET | `/api/users/{username}/blogs` | User published blogs |
+| GET | `/api/roadmaps` | Road maps list |
+| GET | `/api/roadmaps/{id}` | Road map details (with nodes) |
+| GET | `/api/tags` | Tags list |
+| GET | `/api/profiles` | Profiles list |
+| POST | `/api/search` | Search posts/blogs/users |
+| POST | `/api/analyze-code` | AI code safety/classification helper |
+| POST | `/api/compile` | Compiler proxy |
+| POST | `/api/generate-uml` | UML image generation |
 
----
+### Protected routes (`auth:sanctum`)
 
-## API endpoints (summary)
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/logout` | Logout current user |
+| POST | `/api/posts` | Create post |
+| PUT | `/api/posts/{post}` | Update own post |
+| DELETE | `/api/posts/{post}` | Delete own post |
+| GET | `/api/posts/recommended` | Personalized feed |
+| GET | `/api/posts/drafts` | Current user draft posts |
+| GET | `/api/posts/viewers/{id}` | Post viewers |
+| POST | `/api/posts/{post}/toggle-like` | Toggle post like |
+| POST | `/api/blogs/{blog}/toggle-like` | Toggle blog like |
+| GET | `/api/blogs/drafts` | Current user draft blogs |
+| GET | `/api/blogs/viewers/{id}` | Blog viewers |
+| POST | `/api/comments` | Create comment for post/blog |
+| POST | `/api/blogs/{blog}/comments` | Create comment scoped by blog route param |
+| GET | `/api/comments/{comment}` | Comment details |
+| POST | `/api/comments/{comment}` | Update own comment |
+| POST | `/api/comments/{comment}/like` | Like/unlike-style toggle for comment likes |
+| POST | `/api/comments/{comment}/dislike` | Toggle comment dislike |
+| GET | `/api/comments/{comment}/children` | Paginated child comments |
+| POST | `/api/comments/{comment}/highlight` | Highlight comment (content owner only) |
+| GET | `/api/notifications` | Notifications list |
+| GET | `/api/notifications/unread-count` | Unread notifications count |
+| PATCH | `/api/notifications/{notification}/read` | Mark one notification as read |
+| PATCH | `/api/notifications/read-all` | Mark all as read |
+| GET | `/api/activity` | Activity history |
+| GET | `/api/saved` | Saved items list (`type=post|blog|all`) |
+| POST | `/api/saves` | Save content (`type`, `id`) |
+| DELETE | `/api/saves` | Remove saved content (`type`, `id`) |
+| POST | `/api/views` | Record view (`type=post|blog|profile`, `id`) |
+| PUT | `/api/profile` | Update own profile |
+| GET | `/api/profiles/{profile}` | Profile details by profile id |
+| GET | `/api/profiles/viewers/{id}` | Profile viewers |
+| POST | `/api/users/{username}/follow` | Follow user |
+| DELETE | `/api/users/{username}/follow` | Unfollow user |
+| POST | `/api/updatepost/tags/{post}` | Sync tags on own post |
+| POST | `/api/updateprofile/tags/{profile}` | Sync tags on own profile |
+| POST | `/api/survy` | Initial profile tags survey |
+| POST | `/api/suggestions` | Mention suggestions (`q`) |
+| apiResource | `/api/blogs` | Used for write operations; index/show also have dedicated public GET routes |
 
-### Auth
+## Response format notes
 
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| POST | `/api/register` | No |
-| POST | `/api/login` | No |
-| POST | `/api/logout` | Yes |
+- Most controllers use `App\Traits\ApiResponseTrait` with shape:
+  - success: `{ "status": "success", "message": "...", "data": ... }`
+  - error: `{ "status": "error", "message": "...", "errors": ... }`
+- Paginated endpoints include `pagination` metadata.
+- Some endpoints still return direct `response()->json(...)` (legacy style), so shape can vary by route.
 
-### Posts
+## Content resource notes
 
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/posts` | No |
-| GET | `/api/posts/{post}` | No |
-| POST | `/api/posts` | Yes |
-| PUT | `/api/posts/{post}` | Yes |
-| DELETE | `/api/posts/{post}` | Yes |
-| POST | `/api/posts/{post}/toggle-like` | Yes |
+- `PostResource` computes `type` as: `text`, `text_photo`, `text_code`, `text_code_photo`.
+- `CommentResource` computes `type` as: `text` or `text_code`.
+- `is_liked_by_user` currently resolves to `false` when unauthenticated for post/blog resources.
 
-### Comments
+## Local setup
 
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/posts/{post}/comments` | No |
-| POST | `/api/comments` | Yes — body includes `post_id` |
-| GET | `/api/comments/{comment}` | Yes |
-| POST | `/api/comments/{comment}` | Yes — update comment |
-| POST | `/api/comments/{comment}/like` | Yes |
-| POST | `/api/comments/{comment}/dislike` | Yes |
-| GET | `/api/comments/{comment}/children` | Yes |
-| POST | `/api/comments/{comment}/highlight` | Yes — post author highlights comment |
-
-### Blogs
-
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/blogs` | No — published list |
-| GET | `/api/blogs/{blog}` | No |
-| POST, PUT, PATCH, DELETE | `/api/blogs`, `/api/blogs/{blog}` | Yes — `apiResource` |
-
-### Users & profile
-
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/users/{username}` | No |
-| GET | `/api/users/{username}/profile` | No |
-| GET | `/api/users/{username}/posts` | No |
-| GET | `/api/users/{username}/blogs` | No |
-| PUT | `/api/profile` | Yes — update own profile |
-
-### Saved (bookmarks)
-
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/saved?type=post\|blog\|all` | Yes — default `type=all` |
-| POST | `/api/saves` | Yes — body: `{ "type": "post" \| "blog", "id": <id> }` |
-| DELETE | `/api/saves` | Yes — same JSON body to remove |
-
-Only **published** posts/blogs can be saved. Each list item uses `SavedItemResource`: `kind` (`post` \| `blog`), `saved_at`, and `data` (same shape as `PostResource` / `BlogResource`). The morph map is registered in `AppServiceProvider` (`post`, `blog`) so additional saveable types can be added later (e.g. reels) without new tables.
-
-### Notifications
-
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/notifications` | Yes |
-| PATCH | `/api/notifications/{notification}/read` | Yes |
-| PATCH | `/api/notifications/read-all` | Yes |
-
-### Road maps (read API)
-
-| Method | Endpoint | Auth |
-|--------|----------|------|
-| GET | `/api/roadmaps` | No |
-| GET | `/api/roadmaps/{id}` | No |
-
-### Utility / testing routes
-
-| Method | Endpoint | Notes |
-|--------|----------|--------|
-| POST | `/api/analyze-code` | Code analysis (testing) |
-| POST | `/api/compile` | Compiler integration |
-| POST | `/api/generate-uml` | UML generation |
-
----
-
-## Admin dashboard (Filament)
-
-- URL: **`/admin`** (default panel).
-- Uses **session** login (`web` guard), separate from API tokens.
-- Resources discovered under `app/Filament/Resources` (e.g. **Users**, **Road maps**).
-
----
-
-## Installation (local)
-
-```bash
-git clone <repository-url> blog-restfull-api
-cd blog-restfull-api
-
+```cmd
 composer install
-
-cp .env.example .env
+copy .env.example .env
 php artisan key:generate
-
-# Configure DB in .env, then:
 php artisan migrate
-
-# Public disk URLs for avatars, covers, post photos:
 php artisan storage:link
-
 php artisan serve
 ```
 
-Optional: configure **Pusher**, **Twilio**, and mail in `.env` for notifications and OTP channels.
+Optional integrations in `.env`: Pusher, Twilio, mail providers, and AI provider keys used by utility endpoints.
 
----
+## Related docs
 
-## Database (high level)
-
-- **users** — accounts (incl. `username`).
-- **profiles** — extended user info, avatar/cover filenames, `ranking_points`, badges (computed in model).
-- **posts** — feed posts: `title`, `body`, `code`, `photo`, `is_published`, etc.
-- **blogs** — article-style content with `is_published`.
-- **comments** — `post_id`, optional `parent_id`, optional `code`, mentions pivot.
-- **likes** — user ↔ post likes (unique per user/post).
-- **saves** — polymorphic bookmarks: `user_id`, `saveable_type` (morph map: `post`, `blog`), `saveable_id`; unique per user + item.
-- **notifications** — Laravel notifications.
-- **otps** — OTP codes for verification flows.
-- Additional tables for road maps/nodes, comment likes pivot, etc. — see `database/migrations/`.
-
----
-
-## Documentation & testing
-
-- API responses often use a shared shape via `App\Traits\ApiResponseTrait` (`status`, `message`, `data`, pagination meta where applicable).
-- Test with **Postman**, **Insomnia**, or your TeckTalk app against `/api/*`.
-
----
-
-## License
-
-MIT (same as Laravel skeleton unless changed by the project owners).
+- `docs/API_RESPONSE_TRAIT.md`
+- `LIKES_IMPLEMENTATION_CHECKLIST.md`
+- `POSTMAN_LIKES_TESTING.md`
