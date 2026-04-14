@@ -85,8 +85,8 @@ class ExampleController extends Controller
 
 ## Important project note
 
-Not every controller method currently uses this trait. Some endpoints still return raw `response()->json(...)` payloads, so response shape is not globally uniform yet.
+JSON endpoints are standardized through this trait. Endpoints that intentionally return non-JSON content (for example binary image output) are expected to use custom responses.
 
 ## Suggested best practice
 
-For new API methods, prefer trait responses to keep frontend contracts consistent.
+For new JSON API methods, use this trait to keep frontend contracts consistent.

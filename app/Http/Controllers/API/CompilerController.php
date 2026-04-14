@@ -4,10 +4,13 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Services\CompilerService;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 
 class CompilerController extends Controller
 {
+    use ApiResponseTrait;
+
     public function run(Request $request, CompilerService $compiler)
     {
         $request->validate([
@@ -22,6 +25,6 @@ class CompilerController extends Controller
             $request->input ?? ""
         );
 
-        return response()->json(['result'=>$result]);
+        return $this->successResponse(['result' => $result], 'Code compiled successfully');
     }
 }

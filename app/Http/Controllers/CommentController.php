@@ -39,7 +39,7 @@ class CommentController extends Controller
 
         if ($comments->isEmpty()) {
             return $this->successResponse([], 'No comments found for this post');
-        }   
+        }
 
         return $this->paginatedResponse(
             CommentResource::collection($comments),
@@ -179,7 +179,7 @@ class CommentController extends Controller
     {
         $comment = Comment::find($id);
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return $this->notFoundResponse('Comment not found');
         }
         $statusL = $comment->likes()->where('user_id', $request->user()->id)->exists();
         $statusD = $comment->dislikes()->where('user_id', $request->user()->id)->exists();
@@ -206,13 +206,16 @@ class CommentController extends Controller
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
 
-        return response()->json(['message' => 'Like status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
+        return $this->successResponse([
+            'likes' => $comment->likes,
+            'dislikes' => $comment->dislikes,
+        ], 'Like status updated');
     }
     public function dislike(Request $request, $id)
     {
         $comment = Comment::find($id);
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return $this->notFoundResponse('Comment not found');
         }
         $statusL = $comment->likes()->where('user_id', $request->user()->id)->exists();
         $statusD = $comment->dislikes()->where('user_id', $request->user()->id)->exists();
@@ -239,14 +242,17 @@ class CommentController extends Controller
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
 
-        return response()->json(['message' => 'Dislike status updated', 'likes' => $comment->likes, 'dislikes' => $comment->dislikes], 200);
+        return $this->successResponse([
+            'likes' => $comment->likes,
+            'dislikes' => $comment->dislikes,
+        ], 'Dislike status updated');
     }
 
     public function getChildren(Request $request, $id)
     {
         $comment = Comment::find($id);
         if (!$comment) {
-            return response()->json(['message' => 'Comment Not Found'], 404);
+            return $this->notFoundResponse('Comment not found');
         }
         $perPage = 3;
         $page = $request->get('page', 1);
@@ -262,7 +268,10 @@ class CommentController extends Controller
             $allchildren = array_merge($allchildren, $children->items());
         }
 
-        return response()->json(['data' => $allchildren, 'message' => 'Child comments retrieved successfully', 'num of total pages' => ceil($allCount / $perPage)], 200);
+        return $this->successResponse([
+            'children' => CommentResource::collection(collect($allchildren)),
+            'total_pages' => (int) ceil($allCount / $perPage),
+        ], 'Child comments retrieved successfully');
     }
 
     public function highlight(Request $request, $id)
@@ -341,7 +350,7 @@ class CommentController extends Controller
             'avatar'   => $user->profile?->avatar,
         ]);
 
-        return response()->json(['data' => $formatted]);
+        return $this->successResponse($formatted, 'Suggestions retrieved successfully');
     }
 
     // public function destroy($id)

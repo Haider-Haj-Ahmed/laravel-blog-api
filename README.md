@@ -102,7 +102,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
   - success: `{ "status": "success", "message": "...", "data": ... }`
   - error: `{ "status": "error", "message": "...", "errors": ... }`
 - Paginated endpoints include `pagination` metadata.
-- Some endpoints still return direct `response()->json(...)` (legacy style), so shape can vary by route.
+- Non-JSON endpoints (for example image/binary responses) may bypass this envelope intentionally.
 
 ## Content resource notes
 

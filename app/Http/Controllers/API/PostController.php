@@ -301,7 +301,7 @@ class PostController extends Controller
         if (!$post) {
             return $this->notFoundResponse('Post not found');
         }
-        return response()->json([
+        return $this->successResponse([
             'viewers' => $post->views()->with('user')->get()->map(function ($view) {
                 return [
                     'id' => $view->user_id,
@@ -309,6 +309,6 @@ class PostController extends Controller
                     'viewed_at' => $view->created_at->toDateTimeString(),
                 ];
             }),
-        ]);
+        ], 'Post viewers retrieved successfully');
     }
 }
