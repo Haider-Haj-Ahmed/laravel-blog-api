@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\LogoutRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use App\Traits\ApiResponseTrait;
 use App\Models\Otp;
 use Carbon\Carbon;
 use App\Notifications\OtpNotification;
 use App\Http\Controllers\API\OtpController;
 use App\Models\Profile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -23,22 +26,35 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $user = User::create([
-            'name' => $credentials['name'],
-            'email' => $credentials['email'],
-            'username' => $credentials['username'],
-            'password' => bcrypt($credentials['password']),
-        ]);
+        try {
+            $user = DB::transaction(function () use ($credentials) {
+                $user = User::create([
+                    'name' => $credentials['name'],
+                    'email' => $credentials['email'],
+                    'username' => $credentials['username'],
+                    'password' => bcrypt($credentials['password']),
+                ]);
 
-        // Create a basic profile for the user
-        Profile::create([
-            'user_id' => $user->id,
-            'ranking_points' => 0,
-            'bio' => $credentials['bio'] ?? null,
-            'avatar' => $credentials['avatar'] ?? null,
-            'website' => $credentials['website'] ?? null,
-            'location' => $credentials['location'] ?? null,
-        ]);
+                Profile::create([
+                    'user_id' => $user->id,
+                    'ranking_points' => 0,
+                    'bio' => $credentials['bio'] ?? null,
+                    'avatar' => $credentials['avatar'] ?? null,
+                    'website' => $credentials['website'] ?? null,
+                    'location' => $credentials['location'] ?? null,
+                ]);
+
+                return $user;
+            });
+        } catch (Throwable $exception) {
+            Log::error('Registration transaction failed.', [
+                'email' => $credentials['email'] ?? null,
+                'username' => $credentials['username'] ?? null,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return $this->errorResponse('Registration failed. Please try again.', 500);
+        }
 
         // create OTP
         $plain = random_int(100000, 999999);
@@ -55,25 +71,6 @@ class AuthController extends Controller
         // send notification
         $user->notify(new OtpNotification((string) $plain, $request->get('channel', 'email')));
 
-        // If an OTP code was provided during registration, attempt to verify it immediately
-        if ($request->filled('code')) {
-            // Build a request to pass to the OtpController verify method
-            $verifyRequest = new Request([
-                'user_id' => $user->id,
-                'code' => $request->get('code'),
-            ]);
-
-            $otpController = app(OtpController::class);
-            $verifyResponse = $otpController->verify($verifyRequest);
-
-            // If OTP verification succeeded, return whatever the verification response returned
-            if ($verifyResponse->getStatusCode() === 200) {
-                return $verifyResponse;
-            }
-
-            // If verification failed, return the verification response
-            return $verifyResponse;
-        }
 
         // Otherwise, don't create an auth token until the user verifies via the OTP endpoint
         return $this->createdResponse([
@@ -105,7 +102,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->createAccessToken($user);
 
         return $this->successResponse([
             'user' => $user,
@@ -114,9 +111,36 @@ class AuthController extends Controller
         ], 'Login successful');
     }
 
-    public function logout(Request $request)
+    public function logout(LogoutRequest $request)
     {
-        $request->user()->tokens()->delete();
-        return $this->successResponse(null, 'Logged out successfully');
+        $user = $request->user();
+        $logoutAllDevices = $request->boolean('all_devices') || $request->input('scope') === 'all';
+
+        if ($logoutAllDevices) {
+            $user->tokens()->delete();
+
+            return $this->successResponse(null, 'Logged out from all devices successfully');
+        }
+
+        $currentToken = $user->currentAccessToken();
+
+        if ($currentToken) {
+            $currentToken->delete();
+
+            return $this->successResponse(null, 'Logged out from current device successfully');
+        }
+
+        return $this->successResponse(null, 'No active access token found for current device.');
+    }
+
+    private function createAccessToken(User $user): string
+    {
+        $expirationMinutes = config('sanctum.expiration');
+
+        if (is_numeric($expirationMinutes) && (int) $expirationMinutes > 0) {
+            return $user->createToken('auth_token', ['*'], now()->addMinutes((int) $expirationMinutes))->plainTextToken;
+        }
+
+        return $user->createToken('auth_token')->plainTextToken;
     }
 }

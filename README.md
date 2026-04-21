@@ -85,6 +85,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | POST | `/api/saves` | Save content (`type`, `id`) |
 | DELETE | `/api/saves` | Remove saved content (`type`, `id`) |
 | POST | `/api/views` | Record view (`type=post|blog|profile`, `id`) |
+| GET | `/api/showme` | Get current user's profile |
 | PUT | `/api/profile` | Update own profile |
 | GET | `/api/profiles/{profile}` | Profile details by profile id |
 | GET | `/api/profiles/viewers/{id}` | Profile viewers |

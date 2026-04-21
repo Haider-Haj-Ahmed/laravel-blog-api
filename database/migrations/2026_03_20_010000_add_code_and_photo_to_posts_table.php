@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::table('posts', function (Blueprint $table) {
             $table->longText('code')->nullable()->after('body');
-            $table->string('photo')->nullable()->after('code');
         });
     }
 
@@ -18,8 +17,6 @@ return new class extends Migration
     {
         Schema::table('posts', function (Blueprint $table) {
             $table->dropColumn('code');
-            $table->dropColumn('photo');
         });
     }
 };
-

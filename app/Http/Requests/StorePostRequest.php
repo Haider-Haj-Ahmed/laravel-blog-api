@@ -26,7 +26,6 @@ class StorePostRequest extends FormRequest
             'body' => 'required|string',
             'code' => 'nullable|string',
             'code_language' => 'nullable|string|max:50',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
             'photos' => 'nullable|array|max:4',
             'photos.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
             'is_published' => 'boolean',

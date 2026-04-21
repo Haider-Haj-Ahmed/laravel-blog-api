@@ -4,10 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Services\ActivityService;
 class Comment extends Model
 {
     use HasFactory;
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Comment $comment) {
+            app(ActivityService::class)->purgeActivitiesForDeletedComment($comment);
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -45,5 +54,13 @@ class Comment extends Model
     }
     public function has_childrens(){
         return $this->children()->count() > 0;
+
+    public function isLikedBy($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->likes()->wherePivot('user_id', $user->id)->exists();
     }
 }

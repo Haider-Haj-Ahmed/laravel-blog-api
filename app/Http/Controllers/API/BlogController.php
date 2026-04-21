@@ -19,6 +19,10 @@ class BlogController extends Controller
 {
     use ApiResponseTrait;
 
+    public function __construct(private readonly ActivityService $activityService)
+    {
+    }
+
     /**
      * Display a listing of published blogs.
      */
@@ -129,7 +133,7 @@ class BlogController extends Controller
         $atts=$request->validate([
             'title' => 'sometimes|string',
             'body' => 'sometimes|string',
-            'tags'=>'array',
+            'tags'=>'array|sometimes',
             'tags.*'=>'exists:tags,id',
             'is_published' => 'sometimes|boolean'
         ]);
@@ -163,6 +167,7 @@ class BlogController extends Controller
 
         if ($like) {
             $like->delete();
+            $this->activityService->purgeUserInteraction($request->user(), $blog, 'blog_liked');
             $isLiked = false;
         } else {
             BlogLike::create([

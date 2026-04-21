@@ -63,7 +63,7 @@ class OtpController extends Controller
         Otp::where('user_id', $user->id)->delete();
 
         // Generate authentication token after successful OTP verification
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->createAccessToken($user);
 
         return $this->successResponse([
             'user' => $user,
@@ -131,5 +131,16 @@ class OtpController extends Controller
     protected function generateCode(): string
     {
         return (string) random_int(100000, 999999); // 6-digit
+    }
+
+    private function createAccessToken(User $user): string
+    {
+        $expirationMinutes = config('sanctum.expiration');
+
+        if (is_numeric($expirationMinutes) && (int) $expirationMinutes > 0) {
+            return $user->createToken('auth_token', ['*'], now()->addMinutes((int) $expirationMinutes))->plainTextToken;
+        }
+
+        return $user->createToken('auth_token')->plainTextToken;
     }
 }
