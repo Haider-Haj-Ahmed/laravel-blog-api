@@ -82,11 +82,11 @@ class BlogController extends Controller
         });
         }catch(\Exception $e){
             Log::error('Error creating blog: '.$e->getMessage());
-            
+
             foreach ($storedPaths as $path) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
             }
-            
+
             return $this->errorResponse('Failed to create blog', 500);
         }
 
@@ -201,7 +201,7 @@ class BlogController extends Controller
         if (!$blog) {
             return $this->notFoundResponse('Blog not found');
         }
-        return response()->json([
+        return $this->successResponse([
             'viewers' => $blog->views()->with('user')->get()->map(function ($view) {
                 return [
                     'id' => $view->user_id,
@@ -209,6 +209,6 @@ class BlogController extends Controller
                     'viewed_at' => $view->created_at->toDateTimeString(),
                 ];
             }),
-        ]);
+        ], 'Blog viewers retrieved successfully');
     }
 }

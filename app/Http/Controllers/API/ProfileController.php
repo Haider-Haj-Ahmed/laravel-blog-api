@@ -39,13 +39,13 @@ class ProfileController extends Controller
     public function showViaId($id){
         $profile = Profile::where('id', $id)->with('tags')->first();
         if(!$profile) {
-            return response()->json(['message'=> 'Profile not found'],404);
+            return $this->notFoundResponse('Profile not found');
         }
-        return response()->json(['profile'=>$profile],200);
+        return $this->successResponse($profile, 'Profile retrieved successfully');
     }
     public function index(){
         $profiles = Profile::orderBy('created_at','desc')->paginate(10);
-        return response()->json(['profiles'=>$profiles]);
+        return $this->paginatedResponse($profiles, 'Profiles retrieved successfully');
     }
 
     /**
@@ -174,7 +174,7 @@ class ProfileController extends Controller
         if (!$profile) {
             return $this->notFoundResponse('Profile not found');
         }
-        return response()->json([
+        return $this->successResponse([
             'viewers' => $profile->views()->with('user')->get()->map(function ($view) {
                 return [
                     'id' => $view->user_id,
@@ -182,6 +182,6 @@ class ProfileController extends Controller
                     'viewed_at' => $view->created_at->toDateTimeString(),
                 ];
             }),
-        ]);
+        ], 'Profile viewers retrieved successfully');
     }
 }

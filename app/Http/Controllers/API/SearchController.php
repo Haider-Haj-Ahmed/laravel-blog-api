@@ -7,11 +7,14 @@ use App\Http\Resources\UserSummaryResource;
 use App\Models\Blog;
 use App\Models\Post;
 use App\Models\User;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SearchController extends Controller
 {
+    use ApiResponseTrait;
+
     public function search(Request $request){
         $atts=$request->validate([
               'query'=>'string|required',
@@ -63,13 +66,15 @@ class SearchController extends Controller
         // $blogs = $blogsQuery->with('tags')->skip($offset)->take($perPage)->get();
         if($atts['tab']=='users'){
             $users = $usersQuery->with('profile')->skip(0)->take($perPage*$page)->get();
-            return response()->json(['users' => UserSummaryResource::collection($users)]);
+            return $this->successResponse(UserSummaryResource::collection($users), 'Users retrieved successfully');
         }elseif($atts['tab']=='posts'){
             $posts = $postsQuery->with('tags')->skip(0)->take($perPage*$page)->get();
-            return response()->json(['posts'=>$posts]);
+            return $this->successResponse($posts, 'Posts retrieved successfully');
         }elseif($atts['tab']=='blogs'){
-            $blogs = $blogsQuery->with('tags')->skip(0)->take($perPage*$page)->get();            return response()->json(['blogs'=>$blogs]);
+            $blogs = $blogsQuery->with('tags')->skip(0)->take($perPage*$page)->get();
+            return $this->successResponse($blogs, 'Blogs retrieved successfully');
         }
 
+        return $this->errorResponse('Unsupported search tab', 400);
     }
 }

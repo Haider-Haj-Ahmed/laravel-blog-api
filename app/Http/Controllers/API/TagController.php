@@ -7,18 +7,21 @@ use App\Models\Post;
 use App\Models\Profile;
 use App\Models\Tag;
 use App\Services\RecommendationCacheService;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class TagController extends Controller
 {
+    use ApiResponseTrait;
+
     public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
     {
     }
 
     public function index(){
         $tags=Tag::all();
-        return response()->json(['tags'=>$tags]);
+        return $this->successResponse($tags, 'Tags retrieved successfully');
     }
     // public function updatePost(Request $request,$id){
     //     $atts=$request->validate([
