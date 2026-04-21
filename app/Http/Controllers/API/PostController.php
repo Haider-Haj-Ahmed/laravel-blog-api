@@ -5,16 +5,18 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Events\PostLiked;
 use App\Http\Requests\StorePostRequest;
+use App\Http\Requests\UpdatePostContentRequest;
+use App\Http\Requests\UpdatePostPhotosRequest;
 use Illuminate\Http\Request;
 use App\Models\Post;
 use App\Models\Like;
+use App\Models\PostPhoto;
 use App\Services\ActivityService;
 use App\Services\PostRecommendationService;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\PostResource;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 class PostController extends Controller
 {
@@ -34,8 +36,7 @@ class PostController extends Controller
     {
         $posts = Post::with(['user', 'photos'])
             ->where('is_published', true)
-            ->withCount('comments')
-            ->withCount('likes')
+            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -77,7 +78,7 @@ class PostController extends Controller
 
         $credentials = $request->validated();
         $uploadedPhotos = $this->extractUploadedPhotos($request);
-        unset($credentials['photo'], $credentials['photos']);
+        unset($credentials['photos']);
 
         $post = $request->user()->posts()->create($credentials);
         $this->syncUploadedPhotos($post, $uploadedPhotos);
@@ -85,7 +86,7 @@ class PostController extends Controller
 
         // Load relationships and counts for consistency
         $post->load(['user', 'photos']);
-        $post->loadCount(['comments', 'likes']);
+        $post->loadCount(['comments', 'likes', 'views']);
 
         return $this->createdResponse(
             new PostResource($post),
@@ -99,8 +100,7 @@ class PostController extends Controller
     public function show($id)
     {
         $post = Post::with(['user', 'photos'])
-            ->withCount('comments')
-            ->withCount('likes')
+            ->withCount(['comments', 'likes', 'views'])
             ->find($id);
 
         if (!$post) {
@@ -123,49 +123,74 @@ class PostController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
+    public function updateContent(UpdatePostContentRequest $request, $id)
     {
-        $post = Post::find($id);
-
-        if (!$post) {
-            return $this->notFoundResponse('Post not found');
+        $postOrResponse = $this->resolveOwnedPost($request, $id);
+        if (! $postOrResponse instanceof Post) {
+            return $postOrResponse;
         }
 
-        // تحقق أن المستخدم صاحب المقال
-        if ($request->user()->id !== $post->user_id) {
-            return $this->forbiddenResponse('You are not authorized to update this post');
+        $this->applyContentUpdate($postOrResponse, $request->validated());
+
+        return $this->returnUpdatedPostResponse($postOrResponse, 'Post content updated successfully');
+    }
+
+    public function addPhoto(UpdatePostPhotosRequest $request, $id)
+    {
+        $postOrResponse = $this->resolveOwnedPost($request, $id);
+        if (! $postOrResponse instanceof Post) {
+            return $postOrResponse;
         }
 
-        $validated = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'body' => 'sometimes|string',
-            'code' => 'sometimes|nullable|string',
-            'code_language' => 'sometimes|nullable|string|max:50',
-            'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
-            'photos' => 'sometimes|array|max:4',
-            'photos.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
-            'is_published' => 'sometimes|boolean'
-        ]);
-
-        $uploadedPhotos = null;
-        if ($request->hasFile('photo') || $request->hasFile('photos')) {
-            $uploadedPhotos = $this->extractUploadedPhotos($request);
-        }
-        unset($validated['photo'], $validated['photos']);
-
-        $post->update($validated);
-        if ($uploadedPhotos !== null) {
-            $this->syncUploadedPhotos($post, $uploadedPhotos);
+        if ($postOrResponse->photos()->count() >= 4) {
+            return $this->validationErrorResponse([
+                'photo' => ['A post cannot have more than 4 photos.'],
+            ]);
         }
 
-        // Load relationships and counts for consistency
-        $post->load(['user', 'photos']);
-        $post->loadCount(['comments', 'likes']);
+        $this->createPhotoForPost($postOrResponse, $request->file('photo'));
 
-        return $this->successResponse(
-            new PostResource($post),
-            'Post updated successfully'
-        );
+        return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo added successfully');
+    }
+
+    public function replacePhoto(UpdatePostPhotosRequest $request, $id, $photoId)
+    {
+        $postOrResponse = $this->resolveOwnedPost($request, $id);
+        if (! $postOrResponse instanceof Post) {
+            return $postOrResponse;
+        }
+
+        $photoOrResponse = $this->resolveOwnedPhoto($postOrResponse, $photoId);
+        if (! $photoOrResponse instanceof PostPhoto) {
+            return $photoOrResponse;
+        }
+
+        $this->deleteStoredPhoto($photoOrResponse->path);
+        $replacementFile = $request->file('photo');
+        $replacementName = time() . '_' . $postOrResponse->user_id . '_' . $photoOrResponse->sort_order . '.' . $replacementFile->getClientOriginalExtension();
+        $replacementPath = $replacementFile->storeAs('post_photos', $replacementName, 'public');
+        $photoOrResponse->update(['path' => $replacementPath]);
+
+        return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo replaced successfully');
+    }
+
+    public function deletePhoto(Request $request, $id, $photoId)
+    {
+        $postOrResponse = $this->resolveOwnedPost($request, $id);
+        if (! $postOrResponse instanceof Post) {
+            return $postOrResponse;
+        }
+
+        $photoOrResponse = $this->resolveOwnedPhoto($postOrResponse, $photoId);
+        if (! $photoOrResponse instanceof PostPhoto) {
+            return $photoOrResponse;
+        }
+
+        $this->deleteStoredPhoto($photoOrResponse->path);
+        $photoOrResponse->delete();
+        $this->normalizePhotoSortOrder($postOrResponse);
+
+        return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo deleted successfully');
     }
 
     /**
@@ -207,6 +232,7 @@ class PostController extends Controller
 
         if ($like) {
             $like->delete();
+            $this->activityService->purgeUserInteraction($user, $post, 'post_liked');
             $isLiked = false;
         } else {
             Like::create([
@@ -234,7 +260,7 @@ class PostController extends Controller
         $posts = $request->user()->posts()
             ->with(['user', 'photos'])
             ->where('is_published', false)
-            ->withCount('comments', 'likes')
+            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -246,31 +272,88 @@ class PostController extends Controller
 
     private function extractUploadedPhotos(Request $request): array
     {
-        $uploadedPhotos = [];
+        return $request->hasFile('photos') ? $request->file('photos') : [];
+    }
 
-        if ($request->hasFile('photo')) {
-            $uploadedPhotos[] = $request->file('photo');
+    private function resolveOwnedPost(Request $request, $id)
+    {
+        $post = Post::find($id);
+        if (! $post) {
+            return $this->notFoundResponse('Post not found');
         }
 
-        if ($request->hasFile('photos')) {
-            $uploadedPhotos = array_merge($uploadedPhotos, $request->file('photos'));
+        if ($request->user()->id !== $post->user_id) {
+            return $this->forbiddenResponse('You are not authorized to update this post');
         }
 
-        if (count($uploadedPhotos) > 4) {
-            throw ValidationException::withMessages([
-                'photos' => ['A post may have at most 4 photos.'],
-            ]);
+        return $post;
+    }
+
+    private function applyContentUpdate(Post $post, array $validated): void
+    {
+        $tags = $validated['tags'] ?? null;
+        unset($validated['tags']);
+
+        if (! empty($validated)) {
+            $post->update($validated);
         }
 
-        return $uploadedPhotos;
+        if ($tags !== null) {
+            $post->tags()->sync($tags);
+        }
+    }
+
+    private function returnUpdatedPostResponse(Post $post, string $message)
+    {
+        $post->load(['user', 'photos', 'tags']);
+        $post->loadCount(['comments', 'likes', 'views']);
+
+        return $this->successResponse(
+            new PostResource($post),
+            $message
+        );
+    }
+
+    private function resolveOwnedPhoto(Post $post, $photoId)
+    {
+        $photo = $post->photos()->where('id', $photoId)->first();
+        if (! $photo) {
+            return $this->notFoundResponse('Post photo not found');
+        }
+
+        return $photo;
+    }
+
+    private function createPhotoForPost(Post $post, $photoFile): void
+    {
+        $nextSortOrder = (int) ($post->photos()->max('sort_order') ?? -1) + 1;
+        $photoName = time() . '_' . $post->user_id . '_' . $nextSortOrder . '.' . $photoFile->getClientOriginalExtension();
+        $storedPath = $photoFile->storeAs('post_photos', $photoName, 'public');
+
+        $post->photos()->create([
+            'path' => $storedPath,
+            'sort_order' => $nextSortOrder,
+        ]);
+    }
+
+    private function deleteStoredPhoto(string $path): void
+    {
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function normalizePhotoSortOrder(Post $post): void
+    {
+        $post->photos()->orderBy('sort_order')->orderBy('id')->get()->each(function (PostPhoto $photo, int $index) {
+            if ((int) $photo->sort_order !== $index) {
+                $photo->update(['sort_order' => $index]);
+            }
+        });
     }
 
     private function syncUploadedPhotos(Post $post, array $uploadedPhotos): void
     {
-        if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
-            Storage::disk('public')->delete("post_photos/{$post->photo}");
-        }
-
         foreach ($post->photos as $existingPhoto) {
             if (Storage::disk('public')->exists($existingPhoto->path)) {
                 Storage::disk('public')->delete($existingPhoto->path);
@@ -279,7 +362,6 @@ class PostController extends Controller
 
         $post->photos()->delete();
 
-        $firstPhotoName = null;
         foreach ($uploadedPhotos as $index => $photoFile) {
             $photoName = time() . '_' . $post->user_id . '_' . $index . '.' . $photoFile->getClientOriginalExtension();
             $storedPath = $photoFile->storeAs('post_photos', $photoName, 'public');
@@ -288,18 +370,15 @@ class PostController extends Controller
                 'path' => $storedPath,
                 'sort_order' => $index,
             ]);
-
-            if ($index === 0) {
-                $firstPhotoName = $photoName;
-            }
         }
-
-        $post->forceFill(['photo' => $firstPhotoName])->save();
     }
      public function viewrs(Request $request,$id){
         $post = Post::find($id);
         if (!$post) {
             return $this->notFoundResponse('Post not found');
+        }
+        if ($request->user()->id !== $post->user_id) {
+            return $this->forbiddenResponse('You are not authorized to view post viewers');
         }
         return $this->successResponse([
             'viewers' => $post->views()->with('user')->get()->map(function ($view) {

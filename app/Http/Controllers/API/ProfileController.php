@@ -20,7 +20,10 @@ class ProfileController extends Controller
     public function show($username)
     {
         $user = User::where('username', $username)
-            ->with(['profile.tags'])
+            ->with([
+                'profile.tags',
+                'profile' => fn ($query) => $query->withCount('views'),
+            ])
             ->withCount([
                 'followers',
                 'following',
@@ -32,6 +35,33 @@ class ProfileController extends Controller
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
+
+        return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
+    }
+
+    /**
+     * Display the authenticated user's profile.
+     */
+    public function showme(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->profile) {
+            Profile::create([
+                'user_id' => $user->id,
+                'ranking_points' => 0,
+            ]);
+        }
+
+        $user->load([
+            'profile.tags',
+            'profile' => fn ($query) => $query->withCount('views'),
+        ])->loadCount([
+            'followers',
+            'following',
+            'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
+            'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
+        ]);
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
     }
@@ -102,7 +132,10 @@ class ProfileController extends Controller
         $profile->fill($validated);
         $profile->save();
 
-        $user->load('profile.tags')->loadCount([
+        $user->load([
+            'profile.tags',
+            'profile' => fn ($query) => $query->withCount('views'),
+        ])->loadCount([
             'followers',
             'following',
             'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
@@ -126,7 +159,7 @@ class ProfileController extends Controller
         $posts = $user->posts()
             ->with('user')
             ->where('is_published', true)
-            ->withCount('comments', 'likes')
+            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -150,7 +183,7 @@ class ProfileController extends Controller
         $blogs = $user->blogs()
             ->with('user')
             ->where('is_published', true)
-            ->withCount('comments', 'likes')
+            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -163,6 +196,9 @@ class ProfileController extends Controller
         $profile = Profile::find($id);
         if (!$profile) {
             return $this->notFoundResponse('Profile not found');
+        }
+        if ($request->user()->id !== $profile->user_id) {
+            return $this->forbiddenResponse('You are not authorized to view profile viewers');
         }
         return $this->successResponse([
             'viewers' => $profile->views()->with('user')->get()->map(function ($view) {

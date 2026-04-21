@@ -17,8 +17,7 @@ class PostResource extends JsonResource
         $hasCode = !empty($this->code);
         $photos = $this->relationLoaded('photos') ? $this->photos : $this->photos()->get();
         $firstPhoto = $photos->first();
-        $legacyPhotoUrl = $this->photo ? asset("storage/post_photos/{$this->photo}") : null;
-        $hasPhoto = $firstPhoto !== null || !empty($this->photo);
+        $hasPhoto = $firstPhoto !== null;
 
         $type = 'text';
         if ($hasCode && $hasPhoto) {
@@ -35,7 +34,7 @@ class PostResource extends JsonResource
             'body' => $this->body,
             'code' => $this->code,
             'code_language' => $this->code_language,
-            'photo_url' => $firstPhoto ? asset("storage/{$firstPhoto->path}") : $legacyPhotoUrl,
+            'photo_url' => $firstPhoto ? asset("storage/{$firstPhoto->path}") : null,
             'photos' => $photos->map(fn ($photo) => [
                 'id' => $photo->id,
                 'url' => asset("storage/{$photo->path}"),

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TagResource;
 use App\Models\Post;
 use App\Models\Profile;
 use App\Models\Tag;
@@ -21,7 +22,7 @@ class TagController extends Controller
 
     public function index(){
         $tags=Tag::all();
-        return $this->successResponse($tags, 'Tags retrieved successfully');
+        return $this->successResponse(TagResource::collection($tags), 'Tags retrieved successfully.');
     }
     public function updatePost(Request $request,$id){
         $atts=$request->validate([

@@ -15,6 +15,8 @@ class BlogResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $viewsCount = isset($this->views_count) ? (int) $this->views_count : $this->views()->count();
+
         return [
             'id' => $this->id,
             'title' => $this->title,
@@ -35,7 +37,7 @@ class BlogResource extends JsonResource
             'likes_count' => $this->when(isset($this->likes_count), $this->likes_count),
             'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
             'tags'=>TagResource::collection($this->whenLoaded('tags')),
-            'views_count'=>$this->views->count(),
+            'views_count' => $viewsCount,
             'sections'=>SectionResource::collection($this->whenLoaded('sections')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

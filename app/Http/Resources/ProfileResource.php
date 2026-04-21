@@ -21,7 +21,7 @@ class ProfileResource extends JsonResource
         $blogsCount = $this->published_blogs_count ?? $this->blogs()->where('is_published', true)->count();
         $followersCount = $this->followers_count ?? $this->followers()->count();
         $followingCount = $this->following_count ?? $this->following()->count();
-        $viewsCount = $profile ? $profile->views()->count() : 0;
+        $viewsCount = $profile ? (int) ($profile->views_count ?? $profile->views()->count()) : 0;
 
         return [
             'username' => $this->username,
