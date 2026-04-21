@@ -15,7 +15,7 @@ class ActivityController extends Controller
     public function index(Request $request)
     {
         $activities = Activity::query()
-            ->where('owner_user_id', $request->user()->id)
+            ->where('actor_user_id', $request->user()->id)
             ->with('actor')
             ->latest()
             ->paginate(20);

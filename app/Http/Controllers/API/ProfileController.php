@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Profile;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\ProfileResource;
+use App\Services\RecommendationCacheService;
 use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
@@ -80,7 +81,7 @@ class ProfileController extends Controller
     /**
      * Update the authenticated user's profile.
      */
-    public function update(Request $request)
+    public function update(Request $request,RecommendationCacheService $recommendationCacheService)
     {
         $user = $request->user();
 
@@ -91,6 +92,8 @@ class ProfileController extends Controller
             'location' => 'nullable|string|max:100',
             'social_links' => 'nullable|array',
             'social_links.*' => 'url',
+            'tags'=>'sometimes|array',
+            'tags.*'=>'exists:tags,id',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // 5MB max
             'settings' => 'nullable|array',
         ]);
@@ -128,7 +131,13 @@ class ProfileController extends Controller
         } else {
             unset($validated['cover_image']); // Don't update cover if not provided
         }
+        //need testing
+        if(isset($validated['tags'])) {
+            $profile->tags()->sync($validated['tags']);
+             unset($validated['tags']);
+            $recommendationCacheService->bumpUserVersion($request->user()->id);
 
+        }
         $profile->fill($validated);
         $profile->save();
 
@@ -158,6 +167,7 @@ class ProfileController extends Controller
 
         $posts = $user->posts()
             ->with('user')
+            ->with('tags')
             ->where('is_published', true)
             ->withCount(['comments', 'likes', 'views'])
             ->latest()

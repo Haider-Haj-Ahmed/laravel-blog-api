@@ -12,7 +12,7 @@ class ActivityService
     public function logUserInteraction(User $actor, Model $subject, string $action, array $meta = []): Activity
     {
         return Activity::create([
-            'owner_user_id' => $actor->id,
+            'owner_user_id' => $subject->user_id,
             'actor_user_id' => $actor->id,
             'action' => $action,
             'subject_type' => $subject->getMorphClass(),

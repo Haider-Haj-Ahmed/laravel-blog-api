@@ -23,11 +23,11 @@ class OtpController extends Controller
     public function verify(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
+            'email' => 'required|email|exists:users,email',
             'code' => 'required|string',
         ]);
-
-        $otp = Otp::where('user_id', $request->user_id)->latest()->first();
+        $user = User::where('email', $request->email)->first();
+        $otp = Otp::where('user_id', $user->id)->latest()->first();
 
         if (!$otp) {
             return $this->notFoundResponse('OTP not found');
@@ -36,6 +36,9 @@ class OtpController extends Controller
         if ($otp->isExpired()) {
             return $this->errorResponse('OTP expired', 422);
         }
+        // if($request->user()->id != $user->id) {
+        //     return $this->unauthorizedResponse('you are not autohrized to verfiy this account');
+        // }
 
         if ($otp->attempts >= $this->maxAttempts) {
             return $this->errorResponse('Max verification attempts exceeded', 429);
@@ -73,11 +76,14 @@ class OtpController extends Controller
     public function resend(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
+            'email' => 'required|integer|exists:users,email',
             'channel' => 'nullable|in:email,sms'
         ]);
 
-        $user = User::findOrFail($request->user_id);
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return $this->notFoundResponse('User not found');
+        }
         if ($user->email_verified_at || $user->phone_verified_at) {
             return $this->validationErrorResponse([
                 'user_id' => ['This account is already verified.'],

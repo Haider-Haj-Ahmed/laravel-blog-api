@@ -43,7 +43,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Comments
     Route::post('/comments', [CommentController::class, 'store']);
-    Route::post('/blogs/{blog}/comments', [CommentController::class, 'storeForBlog']);
+    // Route::post('/blogs/{blog}/comments', [CommentController::class, 'storeForBlog']);
     Route::get('/comments/{comment}', [CommentController::class, 'show']);
     Route::post('/comments/{comment}', [CommentController::class, 'update']);
     Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
