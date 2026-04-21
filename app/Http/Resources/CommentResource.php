@@ -25,6 +25,7 @@ class CommentResource extends JsonResource
             'code'=>$this->code,
             'code_language' => $this->code_language,
             'parent_id'=>$this->parent_id,
+            'has_childrens'=>$this->has_childrens(),
             'user_id' =>$this->user_id,
             'post_id' => $this->post_id,
             'blog_id' => $this->blog_id,

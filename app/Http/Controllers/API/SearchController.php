@@ -15,11 +15,14 @@ class SearchController extends Controller
     public function search(Request $request){
         $atts=$request->validate([
               'query'=>'string|required',
-              'tab'=>'required|string|in:posts,blogs,users',
+              'tab'=>'sometimes|string|in:posts,blogs,users',
               'tags'=>'array',
               'tags.*'=>'exists:tags,id',
               'page'=>'sometimes|integer|min:1',
         ]);
+        if(!isset($atts['tab'])){
+            $atts['tab']='posts';
+        }
         $usersQuery = User::where(function ($q) use ($atts) {
             $q->where('name', 'like', '%'.$atts['query'].'%')
                 ->orWhere('username', 'like', '%'.$atts['query'].'%')
