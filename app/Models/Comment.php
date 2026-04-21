@@ -43,4 +43,7 @@ class Comment extends Model
     public function dislikes(){
         return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like', false)->withPivot('is_like')->withTimestamps();
     }
+    public function has_childrens(){
+        return $this->children()->count() > 0;
+    }
 }

@@ -18,6 +18,7 @@ use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
 use App\Events\PostCommented;
 use App\Events\BlogCommented;
+use App\Models\Activity;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
@@ -30,8 +31,16 @@ class CommentController extends Controller
         private readonly RecommendationCacheService $recommendationCacheService
     ) {}
 
-    public function index($postId)
+    public function index(Request $request, $postId)
     {
+        $post = Post::find($postId);
+        if (!$post) {
+            return $this->notFoundResponse('this post is not found');
+        }
+        if (!$post->is_published) {
+            return $this->unauthorizedResponse('you cannot access this post');
+        }
+        $highlighted = Activity::where('action', 'comment_highlighted')->where('subject_id', $postId)->where('subject_type', 'post')->latest()->first();
         $comments = Comment::where('post_id', $postId)
             ->with(['user', 'mentions'])
             ->latest()
@@ -85,7 +94,24 @@ class CommentController extends Controller
             'code_language' => 'nullable|string|max:50',
             'parent_id' => 'nullable|exists:comments,id',
         ]);
-
+        //find for post and blog
+        if (isset($atts['post_id'])) {
+            $post = Post::find($atts['post_id']);
+            if (!$post) {
+                return $this->notFoundResponse('this post is not found');
+            }
+            if (!$post->is_published) {
+                return $this->unauthorizedResponse('you cannot comment on this post');
+            }
+        } elseif (isset($atts['blod_id'])) {
+            $blog = Blog::find($atts['blog_id']);
+            if (!$blog) {
+                return $this->notFoundResponse('this blog is not found');
+            }
+            if (!$blog->is_published) {
+                return $this->unauthorizedResponse('you cannot comment on this blog');
+            }
+        }
         $comment = Comment::create([
             'body' => $atts['body'],
             'user_id' => $request->user()->id,
@@ -95,20 +121,19 @@ class CommentController extends Controller
             'code_language' => $atts['code_language'] ?? null,
             'parent_id' => $atts['parent_id'] ?? null,
         ]);
-
+        if(!$comment){
+            return $this->errorResponse('Failed to create comment', 500);
+        }
         $this->handleMentions($comment);
-        if(isset($atts['code'])){
+        if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
         }
 
         if ($comment->post_id) {
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
-        }
 
-        //Load relationships and return resource
-        $comment->load(['user', 'mentions']);
-
-        if ($comment->post_id) {
+            //Load relationships and return resource
+            $comment->load(['user', 'mentions']);
             $post = Post::find($comment->post_id);
             if ($post) {
                 PostCommented::dispatch($post, $comment, $request->user());
@@ -142,26 +167,45 @@ class CommentController extends Controller
         if (!$comment) {
             return $this->notFoundResponse('Comment not found');
         }
-
+        if($comment->post_id){
+            $post = Post::find($comment->post_id);
+            if (!$post) {
+                return $this->notFoundResponse('Associated post not found');
+            }
+            if (!$post->is_published) {
+                return $this->unauthorizedResponse('you cannot update comment on this post');
+            }
+        }elseif($comment->blog_id){
+            $blog = Blog::find($comment->blog_id);
+            if (!$blog) {
+                return $this->notFoundResponse('Associated Blog not found');
+            }
+            if(!$blog->is_published){
+                return $this->unauthorizedResponse('you cannot update comment on this blog');
+            }
+        }
         // تحقق إنو المستخدم الحالي هو صاحب التعليق
         if ($comment->user_id !== $request->user()->id) {
             return $this->forbiddenResponse('You are not authorized to update this comment');
         }
+        
 
         $atts = $request->validate([
-            'body' => 'nullable|string',
+            'body' => 'sometimes|string',
             'code' => 'nullable|string',
             'code_language' => 'nullable|string|max:50',
         ]);
         preg_match_all('/@([\w\-]+)/', $comment->body, $matches);
 
         $oldUsernames = $matches[1] ?? [];
-        $comment->update([
+        $b=$comment->update([
             'body' => $atts['body'] ?? $comment->body,
             'code' => $atts['code'] ?? $comment->code,
             'code_language' => array_key_exists('code_language', $atts) ? $atts['code_language'] : $comment->code_language,
         ]);
-
+        if(!$b){
+            return $this->errorResponse('Failed to update comment', 500);
+        }
         $this->handleMentions($comment, $oldUsernames);
         if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
@@ -180,6 +224,23 @@ class CommentController extends Controller
         $comment = Comment::find($id);
         if (!$comment) {
             return $this->notFoundResponse('Comment not found');
+        }
+        if($comment->post_id){
+            $post = Post::find($comment->post_id);
+            if (!$post) {
+                return $this->notFoundResponse('Associated post not found');
+            }
+            if (!$post->is_published) {
+                return $this->unauthorizedResponse('you cannot update comment on this post');
+            }
+        }elseif($comment->blog_id){
+            $blog = Blog::find($comment->blog_id);
+            if (!$blog) {
+                return $this->notFoundResponse('Associated Blog not found');
+            }
+            if(!$blog->is_published){
+                return $this->unauthorizedResponse('you cannot update comment on this blog');
+            }
         }
         $statusL = $comment->likes()->where('user_id', $request->user()->id)->exists();
         $statusD = $comment->dislikes()->where('user_id', $request->user()->id)->exists();
@@ -253,6 +314,23 @@ class CommentController extends Controller
         $comment = Comment::find($id);
         if (!$comment) {
             return $this->notFoundResponse('Comment not found');
+        }
+        if($comment->post_id){
+            $post = Post::find($comment->post_id);
+            if (!$post) {
+                return $this->notFoundResponse('Associated post not found');
+            }
+            if (!$post->is_published) {
+                return $this->unauthorizedResponse('you cannot update comment on this post');
+            }
+        }elseif($comment->blog_id){
+            $blog = Blog::find($comment->blog_id);
+            if (!$blog) {
+                return $this->notFoundResponse('Associated Blog not found');
+            }
+            if(!$blog->is_published){
+                return $this->unauthorizedResponse('you cannot update comment on this blog');
+            }
         }
         $perPage = 3;
         $page = $request->get('page', 1);

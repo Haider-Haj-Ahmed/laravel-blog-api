@@ -58,7 +58,9 @@ class SavedController extends Controller
 
         $saves->getCollection()->transform(function (Save $save) {
             if ($save->saveable instanceof Post) {
-                $save->saveable->loadCount(['comments', 'likes']);
+                $save->saveable->loadCount(['comments', 'likes','views']);
+            }elseif($save->saveable instanceof Blog){
+                $save->saveable->loadCount(['views','likes']);
             }
 
             return $save;

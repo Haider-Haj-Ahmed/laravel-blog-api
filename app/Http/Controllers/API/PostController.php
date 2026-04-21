@@ -144,6 +144,8 @@ class PostController extends Controller
             'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
             'photos' => 'sometimes|array|max:4',
             'photos.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
+            'tags'=>'sometimes|array',
+            'tags.*'=>'exists:tags,id',
             'is_published' => 'sometimes|boolean'
         ]);
 
@@ -152,7 +154,12 @@ class PostController extends Controller
             $uploadedPhotos = $this->extractUploadedPhotos($request);
         }
         unset($validated['photo'], $validated['photos']);
-
+        //need testing
+        if(isset($validated['tags'])) {
+            $post->tags()->sync($validated['tags']);
+            $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+             unset($validated['tags']);
+        }
         $post->update($validated);
         if ($uploadedPhotos !== null) {
             $this->syncUploadedPhotos($post, $uploadedPhotos);
