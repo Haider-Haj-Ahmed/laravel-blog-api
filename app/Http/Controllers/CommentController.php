@@ -130,7 +130,7 @@ class CommentController extends Controller
             if (!$post->is_published) {
                 return $this->unauthorizedResponse('you cannot comment on this post');
             }
-        } elseif (isset($atts['blod_id'])) {
+        } elseif (isset($atts['blog_id'])) {
             $blog = Blog::find($atts['blog_id']);
             if (!$blog) {
                 return $this->notFoundResponse('this blog is not found');
@@ -158,6 +158,7 @@ class CommentController extends Controller
 
         if ($comment->post_id) {
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
 
         //Load relationships and return resource
         $comment->load(['user', 'mentions']);
