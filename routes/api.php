@@ -29,7 +29,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/posts', [PostController::class, 'store']);
     Route::get('/posts/recommended', [PostController::class, 'recommended'])->middleware('throttle:recommended-feed');
     Route::get('/posts/drafts', [PostController::class, 'drafts']);
-    Route::put('/posts/{post}', [PostController::class, 'update']);
+    Route::put('/posts/{post}/content', [PostController::class, 'updateContent']);
+    Route::post('/posts/{post}/photos', [PostController::class, 'addPhoto']);
+    Route::put('/posts/{post}/photos/{photo}', [PostController::class, 'replacePhoto']);
+    Route::delete('/posts/{post}/photos/{photo}', [PostController::class, 'deletePhoto']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
     Route::get('/posts/viewers/{id}', [PostController::class, 'viewrs']);
 
@@ -47,7 +50,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike']);
     Route::get('/comments/{comment}/children',[CommentController::class,'getChildren']);
     Route::post('/comments/{comment}/highlight', [CommentController::class, 'highlight']);
-    // Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -74,6 +77,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/views', [ViewController::class, 'store']);
 
     // Profile
+    Route::get('/showme', [ProfileController::class, 'showme']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
     // some tags routes
@@ -86,7 +90,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // Public routes
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{post}', [PostController::class, 'show']);
-Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
+Route::get('/posts/{post}/comments', [CommentController::class, 'indexByPost']);
 Route::get('/blogs/{blog}/comments', [CommentController::class, 'indexByBlog']);
 Route::get('/users/{username}', [UserController::class, 'showByUsername']);
 Route::get('/users/{username}/profile', [ProfileController::class, 'show']);

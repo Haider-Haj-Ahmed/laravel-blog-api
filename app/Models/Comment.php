@@ -4,10 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Services\ActivityService;
 class Comment extends Model
 {
     use HasFactory;
+
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Comment $comment) {
+            app(ActivityService::class)->purgeActivitiesForDeletedComment($comment);
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -27,6 +37,7 @@ class Comment extends Model
     {
         return $this->belongsToMany(User::class, 'comment_user_mentions');
     }
+
     public function parent()
     {
         return $this->belongsTo(Comment::class, 'parent_id');
@@ -36,14 +47,28 @@ class Comment extends Model
     {
         return $this->hasMany(Comment::class, 'parent_id');
     }
+
     public function likes()
     {
-        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like',true)->withPivot('is_like')->withTimestamps();
+        return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like', true)->withPivot('is_like')->withTimestamps();
     }
-    public function dislikes(){
+
+    public function dislikes()
+    {
         return $this->belongsToMany(User::class, 'comment_user_likes')->wherePivot('is_like', false)->withPivot('is_like')->withTimestamps();
     }
-    public function has_childrens(){
+
+    public function has_childrens()
+    {
         return $this->children()->count() > 0;
+    }
+
+    public function isLikedBy($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->likes()->wherePivot('user_id', $user->id)->exists();
     }
 }

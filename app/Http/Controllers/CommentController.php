@@ -45,6 +45,17 @@ class CommentController extends Controller
             ->with(['user', 'mentions'])
             ->latest()
             ->paginate(15);
+        $viewerId = auth('sanctum')->id();
+        $commentsQuery = Comment::where('post_id', $postId)
+            ->with(['user', 'mentions']);
+
+        if ($viewerId) {
+            $commentsQuery->withExists([
+                'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $comments = $commentsQuery->latest()->paginate(15);
 
         if ($comments->isEmpty()) {
             return $this->successResponse([], 'No comments found for this post');
@@ -58,10 +69,17 @@ class CommentController extends Controller
 
     public function indexByBlog($blogId)
     {
-        $comments = Comment::where('blog_id', $blogId)
-            ->with(['user', 'mentions'])
-            ->latest()
-            ->paginate(15);
+        $viewerId = auth('sanctum')->id();
+        $commentsQuery = Comment::where('blog_id', $blogId)
+            ->with(['user', 'mentions']);
+
+        if ($viewerId) {
+            $commentsQuery->withExists([
+                'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $comments = $commentsQuery->latest()->paginate(15);
 
         if ($comments->isEmpty()) {
             return $this->successResponse([], 'No comments found for this blog');
@@ -75,7 +93,16 @@ class CommentController extends Controller
 
     public function show($id)
     {
-        $comment = Comment::with(['user', 'mentions'])->find($id);
+        $viewerId = auth('sanctum')->id();
+        $commentQuery = Comment::with(['user', 'mentions']);
+
+        if ($viewerId) {
+            $commentQuery->withExists([
+                'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $comment = $commentQuery->find($id);
 
         if (!$comment) {
             return $this->notFoundResponse('Comment not found');
@@ -103,7 +130,7 @@ class CommentController extends Controller
             if (!$post->is_published) {
                 return $this->unauthorizedResponse('you cannot comment on this post');
             }
-        } elseif (isset($atts['blod_id'])) {
+        } elseif (isset($atts['blog_id'])) {
             $blog = Blog::find($atts['blog_id']);
             if (!$blog) {
                 return $this->notFoundResponse('this blog is not found');
@@ -131,9 +158,13 @@ class CommentController extends Controller
 
         if ($comment->post_id) {
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        }
 
-            //Load relationships and return resource
-            $comment->load(['user', 'mentions']);
+        //Load relationships and return resource
+        $comment->load(['user', 'mentions']);
+        $comment->setAttribute('is_liked_by_user', false);
+
+        if ($comment->post_id) {
             $post = Post::find($comment->post_id);
             if ($post) {
                 PostCommented::dispatch($post, $comment, $request->user());
@@ -213,6 +244,10 @@ class CommentController extends Controller
 
         // Load relationships and return resource
         $comment->load(['user', 'mentions']);
+        $comment->setAttribute(
+            'is_liked_by_user',
+            $comment->likes()->where('user_id', $request->user()->id)->exists()
+        );
 
         return $this->successResponse(
             new CommentResource($comment),
@@ -267,9 +302,12 @@ class CommentController extends Controller
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
 
+        $isLikedByUser = $comment->likes()->where('user_id', $request->user()->id)->exists();
+
         return $this->successResponse([
             'likes' => $comment->likes,
             'dislikes' => $comment->dislikes,
+            'is_liked_by_user' => $isLikedByUser,
         ], 'Like status updated');
     }
     public function dislike(Request $request, $id)
@@ -303,9 +341,12 @@ class CommentController extends Controller
             $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         }
 
+        $isLikedByUser = $comment->likes()->where('user_id', $request->user()->id)->exists();
+
         return $this->successResponse([
             'likes' => $comment->likes,
             'dislikes' => $comment->dislikes,
+            'is_liked_by_user' => $isLikedByUser,
         ], 'Dislike status updated');
     }
 
@@ -339,10 +380,17 @@ class CommentController extends Controller
         }
         $allCount = $comment->children()->count();
         $allchildren = [];
+        $viewerId = auth('sanctum')->id();
         for ($i = $page; $i > 0; $i--) {
-            $children = $comment->children()
-                ->latest()
-                ->paginate($perPage, ['*'], 'page', $i);
+            $childrenQuery = $comment->children()->latest();
+
+            if ($viewerId) {
+                $childrenQuery->withExists([
+                    'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
+                ]);
+            }
+
+            $children = $childrenQuery->paginate($perPage, ['*'], 'page', $i);
             $allchildren = array_merge($allchildren, $children->items());
         }
 
@@ -431,22 +479,22 @@ class CommentController extends Controller
         return $this->successResponse($formatted, 'Suggestions retrieved successfully');
     }
 
-    // public function destroy($id)
-    // {
-    //     $comment = Comment::find($id);
+    public function destroy(Request $request, $id)
+    {
+        $comment = Comment::find($id);
 
-    //     if (!$comment) {
-    //         return $this->notFoundResponse('Comment not found');
-    //     }
+        if (! $comment) {
+            return $this->notFoundResponse('Comment not found');
+        }
 
-    //     if ($comment->user_id !== Auth::id()) {
-    //         return $this->forbiddenResponse('You are not authorized to delete this comment');
-    //     }
+        if ($comment->user_id !== $request->user()->id) {
+            return $this->forbiddenResponse('You are not authorized to delete this comment');
+        }
 
-    //     $comment->delete();
+        $comment->delete();
 
-    //     return $this->successResponse(null, 'Comment deleted successfully');
-    // }
+        return $this->successResponse(null, 'Comment deleted successfully');
+    }
 
 
 }

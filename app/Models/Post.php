@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 class Post extends Model
 {
     use HasFactory;
-    protected $fillable = ['title', 'body', 'code', 'code_language', 'photo', 'is_published'];
+    protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published'];
 
     protected static function booted(): void
     {
@@ -19,10 +19,6 @@ class Post extends Model
                 if (Storage::disk('public')->exists($photo->path)) {
                     Storage::disk('public')->delete($photo->path);
                 }
-            }
-
-            if ($post->photo && Storage::disk('public')->exists("post_photos/{$post->photo}")) {
-                Storage::disk('public')->delete("post_photos/{$post->photo}");
             }
             //also comments
             //$post->comments()->delete();
@@ -53,7 +49,7 @@ class Post extends Model
 
     public function photos()
     {
-        return $this->hasMany(PostPhoto::class)->orderBy('sort_order');
+        return $this->hasMany(PostPhoto::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function likes()
