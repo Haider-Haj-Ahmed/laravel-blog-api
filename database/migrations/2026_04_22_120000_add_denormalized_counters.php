@@ -67,27 +67,20 @@ return new class extends Migration
 
     private function backfillUserCounters(): void
     {
-        DB::table('users')
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(200, function ($users): void {
-                foreach ($users as $user) {
-                    DB::table('users')
-                        ->where('id', $user->id)
-                        ->update([
-                            'followers_count' => DB::table('follows')->where('followed_id', $user->id)->count(),
-                            'following_count' => DB::table('follows')->where('follower_id', $user->id)->count(),
-                            'published_posts_count' => DB::table('posts')
-                                ->where('user_id', $user->id)
-                                ->where('is_published', true)
-                                ->count(),
-                            'published_blogs_count' => DB::table('blogs')
-                                ->where('user_id', $user->id)
-                                ->where('is_published', true)
-                                ->count(),
-                        ]);
-                }
-            });
+        DB::table('users')->update([
+            'followers_count' => DB::raw(
+                '(select count(*) from follows where follows.followed_id = users.id)'
+            ),
+            'following_count' => DB::raw(
+                '(select count(*) from follows where follows.follower_id = users.id)'
+            ),
+            'published_posts_count' => DB::raw(
+                '(select count(*) from posts where posts.user_id = users.id and posts.is_published = true)'
+            ),
+            'published_blogs_count' => DB::raw(
+                '(select count(*) from blogs where blogs.user_id = users.id and blogs.is_published = true)'
+            ),
+        ]);
     }
 
     private function backfillViewCounters(): void
