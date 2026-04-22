@@ -26,6 +26,8 @@ class Profile extends Model
     protected $casts = [
         'social_links' => 'array',
         'settings' => 'array',
+        'ranking_points' => 'integer',
+        'views_count' => 'integer',
         'last_seen_at' => 'datetime',
     ];
 

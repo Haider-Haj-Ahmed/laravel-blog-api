@@ -12,6 +12,13 @@ class Post extends Model
     use HasFactory;
     protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published'];
 
+    protected $casts = [
+        'is_published' => 'boolean',
+        'comments_count' => 'integer',
+        'likes_count' => 'integer',
+        'views_count' => 'integer',
+    ];
+
     protected static function booted(): void
     {
         static::deleting(function (Post $post) {

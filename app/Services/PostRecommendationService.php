@@ -54,7 +54,7 @@ class PostRecommendationService
             $postsById = Post::query()
                 ->whereIn('id', $postIds)
                 ->with(['user', 'photos', 'tags'])
-                ->withCount(['likes', 'comments', 'saves', 'views'])
+                ->withCount(['saves'])
                 ->get()
                 ->keyBy('id');
 
@@ -345,7 +345,7 @@ class PostRecommendationService
             ->where('user_id', '!=', $user->id)
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
-            ->withCount(['likes', 'comments', 'saves', 'views'])
+            ->withCount(['saves'])
             ->latest()
             ->limit($limit);
 
@@ -374,7 +374,7 @@ class PostRecommendationService
             ->whereNotIn('user_id', $blockedAuthorIds)
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
-            ->withCount(['likes', 'comments', 'saves', 'views'])
+            ->withCount(['saves'])
             ->latest()
             ->limit($limit);
 
@@ -411,7 +411,7 @@ class PostRecommendationService
                 return Post::query()
                     ->where('is_published', true)
                     ->where('created_at', '>=', now()->subDays($windowDays))
-                    ->withCount(['likes', 'comments', 'saves', 'views'])
+                    ->withCount(['saves'])
                     ->orderByRaw("(likes_count * {$wl} + comments_count * {$wc} + saves_count * {$ws} + views_count * {$wv}) DESC")
                     ->latest()
                     ->limit($limit * 2)
@@ -429,7 +429,7 @@ class PostRecommendationService
                 ->where('user_id', '!=', $user->id)
                 ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
                 ->with(['user', 'photos', 'tags'])
-                ->withCount(['likes', 'comments', 'saves', 'views'])
+                ->withCount(['saves'])
                 ->limit($limit);
 
             return $this->rankPostsCollection($query->get(), $tagScores, $followedIdSet, false);
@@ -441,7 +441,7 @@ class PostRecommendationService
             ->where('created_at', '>=', now()->subDays($windowDays))
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
-            ->withCount(['likes', 'comments', 'saves', 'views'])
+            ->withCount(['saves'])
             ->orderByRaw("(likes_count * {$wl} + comments_count * {$wc} + saves_count * {$ws} + views_count * {$wv}) DESC")
             ->latest()
             ->limit($limit);
