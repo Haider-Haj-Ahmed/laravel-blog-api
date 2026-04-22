@@ -21,16 +21,7 @@ class ProfileController extends Controller
     public function show($username)
     {
         $user = User::where('username', $username)
-            ->with([
-                'profile.tags',
-                'profile' => fn ($query) => $query->withCount('views'),
-            ])
-            ->withCount([
-                'followers',
-                'following',
-                'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
-                'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
-            ])
+            ->with('profile.tags')
             ->first();
 
         if (!$user) {
@@ -56,12 +47,6 @@ class ProfileController extends Controller
 
         $user->load([
             'profile.tags',
-            'profile' => fn ($query) => $query->withCount('views'),
-        ])->loadCount([
-            'followers',
-            'following',
-            'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
-            'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
         ]);
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
@@ -143,12 +128,6 @@ class ProfileController extends Controller
 
         $user->load([
             'profile.tags',
-            'profile' => fn ($query) => $query->withCount('views'),
-        ])->loadCount([
-            'followers',
-            'following',
-            'posts as published_posts_count' => fn ($query) => $query->where('is_published', true),
-            'blogs as published_blogs_count' => fn ($query) => $query->where('is_published', true),
         ]);
 
         return $this->successResponse(new ProfileResource($user), 'Profile updated successfully');
@@ -169,7 +148,6 @@ class ProfileController extends Controller
             ->with('user')
             ->with('tags')
             ->where('is_published', true)
-            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -193,7 +171,6 @@ class ProfileController extends Controller
         $blogs = $user->blogs()
             ->with('user')
             ->where('is_published', true)
-            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 

@@ -46,6 +46,11 @@ class ViewController extends Controller
 			'viewable_id' => $viewable->getKey(),
 		]);
 
+		if ($view->wasRecentlyCreated) {
+			$viewable->increment('views_count');
+			$viewable->refresh();
+		}
+
 		if ($validated['type'] === 'post' && $view->wasRecentlyCreated) {
 			$this->recommendationCacheService->bumpUserVersion($request->user()->id);
 		}
@@ -55,7 +60,7 @@ class ViewController extends Controller
 			'already_viewed' => ! $view->wasRecentlyCreated,
 			'type' => $validated['type'],
 			'id' => $viewable->getKey(),
-			'views_count' => $viewable->views()->count(),
+			'views_count' => (int) ($viewable->views_count ?? 0),
 		], $view->wasRecentlyCreated ? 'View recorded successfully' : 'Already viewed');
 	}
 

@@ -38,5 +38,20 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute($maxAttempts)
                 ->by($request->user()?->id ?: $request->ip());
         });
+
+        RateLimiter::for('follow-actions', function (Request $request) {
+            return Limit::perMinute(30)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('comment-actions', function (Request $request) {
+            return Limit::perMinute(60)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('engagement-actions', function (Request $request) {
+            return Limit::perMinute(120)
+                ->by($request->user()?->id ?: $request->ip());
+        });
     }
 }

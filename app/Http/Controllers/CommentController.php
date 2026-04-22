@@ -151,6 +151,7 @@ class CommentController extends Controller
         if(!$comment){
             return $this->errorResponse('Failed to create comment', 500);
         }
+        $this->refreshSubjectCommentCounter($comment->post_id, $comment->blog_id);
         $this->handleMentions($comment);
         if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
@@ -491,9 +492,27 @@ class CommentController extends Controller
             return $this->forbiddenResponse('You are not authorized to delete this comment');
         }
 
+        $postId = $comment->post_id;
+        $blogId = $comment->blog_id;
         $comment->delete();
+        $this->refreshSubjectCommentCounter($postId, $blogId);
 
         return $this->successResponse(null, 'Comment deleted successfully');
+    }
+
+    private function refreshSubjectCommentCounter(?int $postId, ?int $blogId): void
+    {
+        if ($postId) {
+            Post::query()
+                ->whereKey($postId)
+                ->update(['comments_count' => Comment::query()->where('post_id', $postId)->count()]);
+        }
+
+        if ($blogId) {
+            Blog::query()
+                ->whereKey($blogId)
+                ->update(['comments_count' => Comment::query()->where('blog_id', $blogId)->count()]);
+        }
     }
 
 

@@ -26,7 +26,7 @@ class UserSummaryResource extends JsonResource
             'name' => $this->name,
             'avatar_url' => $profile?->avatar ? asset("storage/avatars/{$profile->avatar}") : asset('images/default-avatar.png'),
             'bio' => $profile?->bio,
-            'badge' => $profile?->badge ?? 'junior',
+            'badge' => $profile?->badge,
         ];
     }
 }

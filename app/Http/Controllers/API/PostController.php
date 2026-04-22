@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Models\Post;
 use App\Models\Like;
 use App\Models\PostPhoto;
+use App\Models\User;
 use App\Services\ActivityService;
 use App\Services\PostRecommendationService;
 use App\Services\RecommendationCacheService;
@@ -36,7 +37,6 @@ class PostController extends Controller
     {
         $posts = Post::with(['user', 'photos'])
             ->where('is_published', true)
-            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -81,12 +81,14 @@ class PostController extends Controller
         unset($credentials['photos']);
 
         $post = $request->user()->posts()->create($credentials);
+        if ($post->is_published) {
+            User::whereKey($request->user()->id)->increment('published_posts_count');
+        }
         $this->syncUploadedPhotos($post, $uploadedPhotos);
         $post->tags()->sync($credentials['tags'] ?? []); // Sync tags if provided
 
         // Load relationships and counts for consistency
         $post->load(['user', 'photos']);
-        $post->loadCount(['comments', 'likes', 'views']);
 
         return $this->createdResponse(
             new PostResource($post),
@@ -100,7 +102,6 @@ class PostController extends Controller
     public function show($id)
     {
         $post = Post::with(['user', 'photos'])
-            ->withCount(['comments', 'likes', 'views'])
             ->find($id);
 
         if (!$post) {
@@ -130,7 +131,14 @@ class PostController extends Controller
             return $postOrResponse;
         }
 
+        $wasPublished = (bool) $postOrResponse->is_published;
         $this->applyContentUpdate($postOrResponse, $request->validated());
+        $isPublished = (bool) $postOrResponse->is_published;
+        $this->syncPublishedPostCounter(
+            $request->user()->id,
+            $wasPublished,
+            $isPublished
+        );
 
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post content updated successfully');
     }
@@ -208,6 +216,9 @@ class PostController extends Controller
             return $this->forbiddenResponse('You are not authorized to delete this post');
         }
 
+        if ($post->is_published) {
+            User::whereKey($post->user_id)->where('published_posts_count', '>', 0)->decrement('published_posts_count');
+        }
         $post->delete();
 
         return $this->successResponse(null, 'Post deleted successfully');
@@ -247,7 +258,7 @@ class PostController extends Controller
         $this->recommendationCacheService->bumpUserVersion($user->id);
 
         // Return updated post with like count
-        $post->loadCount('likes');
+        $post->refresh();
 
         return $this->successResponse([
             'is_liked' => $isLiked,
@@ -260,7 +271,6 @@ class PostController extends Controller
         $posts = $request->user()->posts()
             ->with(['user', 'photos'])
             ->where('is_published', false)
-            ->withCount(['comments', 'likes', 'views'])
             ->latest()
             ->paginate(15);
 
@@ -306,12 +316,25 @@ class PostController extends Controller
     private function returnUpdatedPostResponse(Post $post, string $message)
     {
         $post->load(['user', 'photos', 'tags']);
-        $post->loadCount(['comments', 'likes', 'views']);
 
         return $this->successResponse(
             new PostResource($post),
             $message
         );
+    }
+
+    private function syncPublishedPostCounter(int $userId, bool $wasPublished, bool $isPublished): void
+    {
+        if ($wasPublished === $isPublished) {
+            return;
+        }
+
+        if ($isPublished) {
+            User::whereKey($userId)->increment('published_posts_count');
+            return;
+        }
+
+        User::whereKey($userId)->where('published_posts_count', '>', 0)->decrement('published_posts_count');
     }
 
     private function resolveOwnedPhoto(Post $post, $photoId)

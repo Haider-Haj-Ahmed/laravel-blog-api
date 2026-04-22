@@ -7,6 +7,7 @@ use App\Events\BlogLiked;
 use Illuminate\Http\Request;
 use App\Models\Blog;
 use App\Models\BlogLike;
+use App\Models\User;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\BlogResource;
 use App\Http\Requests\StoreBlogRequest;
@@ -30,8 +31,6 @@ class BlogController extends Controller
     {
         $blogs = Blog::with('user')
             ->where('is_published', true)
-            ->withCount('comments')
-            ->withCount('likes')
             ->latest()
             ->paginate(15);
 
@@ -98,7 +97,9 @@ class BlogController extends Controller
         // if($request->has('tags')){
         //     $blog->tags()->sync($request->input('tags'));
         // }
-        $blog->loadCount(['comments', 'likes']);
+        if ($blog->is_published) {
+            User::whereKey($request->user()->id)->increment('published_blogs_count');
+        }
         $blog->load(['tags','sections']);
 
         return $this->createdResponse(
@@ -118,7 +119,6 @@ class BlogController extends Controller
             return $this->forbiddenResponse('You are not authorized to view this blog');
         }
 
-        $blog->loadCount(['comments', 'likes']);
         $blog->load(['tags','sections']);
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog retrieved successfully');
@@ -130,6 +130,7 @@ class BlogController extends Controller
     public function update(Request $request, Blog $blog)
     {
         $this->authorize('update', $blog);
+        $wasPublished = (bool) $blog->is_published;
         $atts=$request->validate([
             'title' => 'sometimes|string',
             'body' => 'sometimes|string',
@@ -138,11 +139,10 @@ class BlogController extends Controller
             'is_published' => 'sometimes|boolean'
         ]);
         $blog->update($atts);
+        $this->syncPublishedBlogCounter($blog->user_id, $wasPublished, (bool) $blog->is_published);
         if(isset($atts['tags'])){
             $blog->tags()->sync($atts['tags']);
         }
-        $blog->loadCount(['comments', 'likes']);
-
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog updated successfully');
     }
 
@@ -153,6 +153,9 @@ class BlogController extends Controller
     {
         $this->authorize('delete', $blog);
 
+        if ($blog->is_published) {
+            User::whereKey($blog->user_id)->where('published_blogs_count', '>', 0)->decrement('published_blogs_count');
+        }
         $blog->delete();
 
         return $this->successResponse(null, 'Blog deleted successfully');
@@ -179,7 +182,7 @@ class BlogController extends Controller
             BlogLiked::dispatch($blog, $request->user());
         }
 
-        $blog->loadCount('likes');
+        $blog->refresh();
 
         return $this->successResponse([
             'is_liked' => $isLiked,
@@ -192,7 +195,6 @@ class BlogController extends Controller
         $blogs = $request->user()->blogs()
             ->with('user')
             ->where('is_published', false)
-            ->withCount('comments', 'likes')
             ->latest()
             ->paginate(15);
 
@@ -215,5 +217,19 @@ class BlogController extends Controller
                 ];
             }),
         ], 'Blog viewers retrieved successfully');
+    }
+
+    private function syncPublishedBlogCounter(int $userId, bool $wasPublished, bool $isPublished): void
+    {
+        if ($wasPublished === $isPublished) {
+            return;
+        }
+
+        if ($isPublished) {
+            User::whereKey($userId)->increment('published_blogs_count');
+            return;
+        }
+
+        User::whereKey($userId)->where('published_blogs_count', '>', 0)->decrement('published_blogs_count');
     }
 }
