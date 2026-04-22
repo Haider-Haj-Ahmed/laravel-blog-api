@@ -92,79 +92,26 @@ return new class extends Migration
 
     private function backfillPostCounters(): void
     {
-        $commentCounts = DB::table('comments')
-            ->whereNotNull('post_id')
-            ->select('post_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('post_id')
-            ->pluck('total', 'post_id');
-
-        $likeCounts = DB::table('likes')
-            ->select('post_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('post_id')
-            ->pluck('total', 'post_id');
-
-        DB::table('posts')
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(500, function ($rows) use ($commentCounts, $likeCounts): void {
-                foreach ($rows as $row) {
-                    DB::table('posts')
-                        ->where('id', $row->id)
-                        ->update([
-                            'comments_count' => (int) ($commentCounts[$row->id] ?? 0),
-                            'likes_count' => (int) ($likeCounts[$row->id] ?? 0),
-                        ]);
-                }
-            });
+        DB::table('posts')->update([
+            'comments_count' => DB::raw('(SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id)'),
+            'likes_count' => DB::raw('(SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id)'),
+        ]);
     }
 
     private function backfillBlogCounters(): void
     {
-        $commentCounts = DB::table('comments')
-            ->whereNotNull('blog_id')
-            ->select('blog_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('blog_id')
-            ->pluck('total', 'blog_id');
-
-        $likeCounts = DB::table('blog_likes')
-            ->select('blog_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('blog_id')
-            ->pluck('total', 'blog_id');
-
-        DB::table('blogs')
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(500, function ($rows) use ($commentCounts, $likeCounts): void {
-                foreach ($rows as $row) {
-                    DB::table('blogs')
-                        ->where('id', $row->id)
-                        ->update([
-                            'comments_count' => (int) ($commentCounts[$row->id] ?? 0),
-                            'likes_count' => (int) ($likeCounts[$row->id] ?? 0),
-                        ]);
-                }
-            });
+        DB::table('blogs')->update([
+            'comments_count' => DB::raw('(SELECT COUNT(*) FROM comments WHERE comments.blog_id = blogs.id)'),
+            'likes_count' => DB::raw('(SELECT COUNT(*) FROM blog_likes WHERE blog_likes.blog_id = blogs.id)'),
+        ]);
     }
 
     private function backfillViewCounterForTable(string $table, string $morphClass): void
     {
-        $viewCounts = DB::table('views')
-            ->select('viewable_id', DB::raw('COUNT(*) as total'))
-            ->where('viewable_type', $morphClass)
-            ->groupBy('viewable_id')
-            ->pluck('total', 'viewable_id');
+        $quotedMorphClass = DB::getPdo()->quote($morphClass);
 
-        DB::table($table)
-            ->select('id')
-            ->orderBy('id')
-            ->chunkById(500, function ($rows) use ($table, $viewCounts): void {
-                foreach ($rows as $row) {
-                    DB::table($table)
-                        ->where('id', $row->id)
-                        ->update([
-                            'views_count' => (int) ($viewCounts[$row->id] ?? 0),
-                        ]);
-                }
-            });
+        DB::table($table)->update([
+            'views_count' => DB::raw("(SELECT COUNT(*) FROM views WHERE views.viewable_id = {$table}.id AND views.viewable_type = {$quotedMorphClass})"),
+        ]);
     }
 };
