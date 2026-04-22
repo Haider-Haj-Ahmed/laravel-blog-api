@@ -492,26 +492,31 @@ class CommentController extends Controller
             return $this->forbiddenResponse('You are not authorized to delete this comment');
         }
 
-        $postId = $comment->post_id;
-        $blogId = $comment->blog_id;
-        $comment->delete();
-        $this->refreshSubjectCommentCounter($postId, $blogId);
+        DB::transaction(function () use ($comment) {
+            $postId = $comment->post_id;
+            $blogId = $comment->blog_id;
+
+            $comment->delete();
+            $this->decrementSubjectCommentCounter($postId, $blogId);
+        });
 
         return $this->successResponse(null, 'Comment deleted successfully');
     }
 
-    private function refreshSubjectCommentCounter(?int $postId, ?int $blogId): void
+    private function decrementSubjectCommentCounter(?int $postId, ?int $blogId): void
     {
         if ($postId) {
             Post::query()
                 ->whereKey($postId)
-                ->update(['comments_count' => Comment::query()->where('post_id', $postId)->count()]);
+                ->where('comments_count', '>', 0)
+                ->decrement('comments_count');
         }
 
         if ($blogId) {
             Blog::query()
                 ->whereKey($blogId)
-                ->update(['comments_count' => Comment::query()->where('blog_id', $blogId)->count()]);
+                ->where('comments_count', '>', 0)
+                ->decrement('comments_count');
         }
     }
 
