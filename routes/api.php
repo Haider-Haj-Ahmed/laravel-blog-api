@@ -42,15 +42,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/blogs/{blog}/toggle-like', [BlogController::class, 'toggleLike']);
 
     // Comments
-    Route::post('/comments', [CommentController::class, 'store']);
+    Route::post('/comments', [CommentController::class, 'store'])->middleware('throttle:comment-actions');
     // Route::post('/blogs/{blog}/comments', [CommentController::class, 'storeForBlog']);
     Route::get('/comments/{comment}', [CommentController::class, 'show']);
-    Route::post('/comments/{comment}', [CommentController::class, 'update']);
-    Route::post('/comments/{comment}/like', [CommentController::class, 'like']);
-    Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike']);
+    Route::post('/comments/{comment}', [CommentController::class, 'update'])->middleware('throttle:comment-actions');
+    Route::post('/comments/{comment}/like', [CommentController::class, 'like'])->middleware('throttle:engagement-actions');
+    Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike'])->middleware('throttle:engagement-actions');
     Route::get('/comments/{comment}/children',[CommentController::class,'getChildren']);
-    Route::post('/comments/{comment}/highlight', [CommentController::class, 'highlight']);
-    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+    Route::post('/comments/{comment}/highlight', [CommentController::class, 'highlight'])->middleware('throttle:comment-actions');
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->middleware('throttle:comment-actions');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -65,8 +65,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('/blogs', BlogController::class);
 
     // Following
-    Route::post('/users/{username}/follow', [UserController::class, 'follow']);
-    Route::delete('/users/{username}/follow', [UserController::class, 'unfollow']);
+    Route::post('/users/{username}/follow', [UserController::class, 'follow'])->middleware('throttle:follow-actions');
+    Route::delete('/users/{username}/follow', [UserController::class, 'unfollow'])->middleware('throttle:follow-actions');
 
     // Saved (bookmarks): polymorphic posts & blogs; extend morph map for more kinds later
     Route::get('/saved', [SavedController::class, 'index']);
@@ -74,7 +74,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/saves', [SavedController::class, 'destroy']);
 
     // Views (polymorphic posts, blogs, profiles)
-    Route::post('/views', [ViewController::class, 'store']);
+    Route::post('/views', [ViewController::class, 'store'])->middleware('throttle:engagement-actions');
 
     // Profile
     Route::get('/showme', [ProfileController::class, 'showme']);

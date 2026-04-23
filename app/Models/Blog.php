@@ -21,6 +21,9 @@ class Blog extends Model
 
     protected $casts = [
         'is_published' => 'boolean',
+        'comments_count' => 'integer',
+        'likes_count' => 'integer',
+        'views_count' => 'integer',
     ];
 
     protected static function booted(): void

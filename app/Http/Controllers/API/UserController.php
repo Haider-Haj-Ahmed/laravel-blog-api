@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -61,59 +62,95 @@ class UserController extends Controller
 
     public function follow(Request $request, string $username)
     {
+        $actor = $request->user();
         $targetUser = User::where('username', $username)->first();
 
         if (! $targetUser) {
             return $this->notFoundResponse('User not found');
         }
 
-        if ($request->user()->id === $targetUser->id) {
+        if ($actor->id === $targetUser->id) {
             return $this->validationErrorResponse([
                 'user' => ['You cannot follow yourself.'],
             ]);
         }
 
-        if ($request->user()->isFollowing($targetUser)) {
+        $created = DB::transaction(function () use ($actor, $targetUser) {
+            $inserted = DB::table('follows')->insertOrIgnore([
+                'follower_id' => $actor->id,
+                'followed_id' => $targetUser->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if ($inserted !== 1) {
+                return false;
+            }
+
+            User::whereKey($actor->id)->increment('following_count');
+            User::whereKey($targetUser->id)->increment('followers_count');
+
+            return true;
+        });
+
+        $targetUser->refresh();
+
+        if (! $created) {
             return $this->successResponse([
                 'is_following' => true,
-                'followers_count' => $targetUser->followers()->count(),
+                'followers_count' => (int) $targetUser->followers_count,
             ], 'Already following user');
         }
 
-        $request->user()->following()->attach($targetUser->id);
-        $targetUser->notify(new UserFollowedNotification($request->user()));
+        $targetUser->notify(new UserFollowedNotification($actor));
 
-        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        $this->recommendationCacheService->bumpUserVersion($actor->id);
 
-        Cache::forget("user:{$request->user()->id}:following_ids");
+        Cache::forget("user:{$actor->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([
             'is_following' => true,
-            'followers_count' => $targetUser->followers()->count(),
+            'followers_count' => (int) $targetUser->followers_count,
         ], 'User followed successfully');
     }
 
     public function unfollow(Request $request, string $username)
     {
+        $actor = $request->user();
         $targetUser = User::where('username', $username)->first();
 
         if (! $targetUser) {
             return $this->notFoundResponse('User not found');
         }
 
-        $deleted = $request->user()->following()->detach($targetUser->id);
+        $deleted = DB::transaction(function () use ($actor, $targetUser) {
+            $deleted = DB::table('follows')
+                ->where('follower_id', $actor->id)
+                ->where('followed_id', $targetUser->id)
+                ->delete();
+
+            if ($deleted !== 1) {
+                return false;
+            }
+
+            User::whereKey($actor->id)->where('following_count', '>', 0)->decrement('following_count');
+            User::whereKey($targetUser->id)->where('followers_count', '>', 0)->decrement('followers_count');
+
+            return true;
+        });
 
         if (! $deleted) {
             return $this->notFoundResponse('You are not following this user');
         }
 
-        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
+        $targetUser->refresh();
+        $this->recommendationCacheService->bumpUserVersion($actor->id);
 
-        Cache::forget("user:{$request->user()->id}:following_ids");
+        Cache::forget("user:{$actor->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
         return $this->successResponse([
             'is_following' => false,
-            'followers_count' => $targetUser->followers()->count(),
+            'followers_count' => (int) $targetUser->followers_count,
         ], 'User unfollowed successfully');
     }
 }

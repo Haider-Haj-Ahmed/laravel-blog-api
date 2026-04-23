@@ -105,5 +105,9 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'phone_verified_at' => 'datetime',
         'password' => 'hashed',
+        'followers_count' => 'integer',
+        'following_count' => 'integer',
+        'published_posts_count' => 'integer',
+        'published_blogs_count' => 'integer',
     ];
 }
