@@ -4,13 +4,19 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserSummaryResource;
+use App\Models\Otp;
 use App\Notifications\UserFollowedNotification;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\UsernameMap;
+use App\Notifications\OtpNotification;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 
 class UserController extends Controller
 {
@@ -25,13 +31,12 @@ class UserController extends Controller
      */
     public function showByUsername($username)
     {
-        $user = User::where('username', $username)
-            ->with('profile')
-            ->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
+        $user->load('profile');
 
         return $this->successResponse(new UserSummaryResource($user), 'User retrieved successfully');
     }
@@ -45,25 +50,123 @@ class UserController extends Controller
     }
 
     /**
-     * Update user profile.
+     * Update username.
      */
-    public function updateProfile(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'username' => 'sometimes|string|max:255|unique:users,username,' . $request->user()->id,
-            'email' => 'sometimes|email|unique:users,email,' . $request->user()->id,
+    public function updateUsername(Request $request){
+        $user=$request->user();
+        $atts=$request->validate([
+            'username'=> 'required|string|lowercase|max:25|min:1',
+            'password'=>'required|string',
         ]);
-
-        $request->user()->update($validated);
-
-        return $this->successResponse($request->user(), 'Profile updated successfully');
+        if(!Hash::check($atts['password'], $user->password)){
+            return $this->validationErrorResponse([
+                'password' => ['The provided password is incorrect.'],
+            ]);
+        }
+        $username=$atts['username'];
+        $username=trim($username);
+        $username=str_replace(' ', '_', $username);
+        $reserved = [
+            'admin', 'administrator', 'api', 'app', 'root', 'system', 'guest', 'test',
+            'users', 'profile', 'profiles', 'auth', 'login', 'register', 'logout',
+            'posts', 'blogs', 'comments', 'likes', 'follows', 'followers',
+            'dashboard', 'settings', 'help', 'support', 'about', 'contact',
+            'search', 'discover', 'trending', 'notifications', 'messages', 'inbox',
+            'search', 'api_v1', 'v1', 'v2', 'static', 'assets', 'storage'
+        ];
+        
+        if (in_array(strtolower($username), $reserved)) {
+            return $this->validationErrorResponse([
+                'username' => ['This username is reserved and cannot be used.'],
+            ]);
+        }
+        
+        if(User::where('username', $username)->exists()){
+            return $this->validationErrorResponse([
+                'username' => ['The username is already taken.'],
+            ]);
+        }
+        try{
+            DB::transaction(function () use ($user, $username) {
+                $oldUsername = $user->username;
+                $user->username = $username;
+                $user->save();
+                UsernameMap::create([
+                    'old'=>$oldUsername,
+                    'current'=>$username
+                ]);
+            });
+        } catch (\Exception $e) {
+            return $this->errorResponse('Failed to update username', 500);
+        }
+        return $this->successResponse(new UserSummaryResource($user),'your username has been successfuly updated our system will keep track of your previous username to redirect links to the new one');
     }
+    public function updateEmail(Request $request){
+        $user=$request->user();
+        $atts=$request->validate([
+            'email'=> 'required|string|email|max:255',
+            'password'=>'required|string',
+        ]);
+        if(!Hash::check($atts['password'], $user->password)){
+            return $this->validationErrorResponse([
+                'password' => ['The provided password is incorrect.'],
+            ]);
+        }
+
+        if (strcasecmp($atts['email'], $user->email) === 0) {
+            return $this->validationErrorResponse([
+                'email' => ['Please provide a different email address.'],
+            ]);
+        }
+
+        $emailTaken = User::where(function ($query) use ($atts) {
+            $query->where('email', $atts['email'])
+                ->orWhere('pending_email', $atts['email']);
+        })->where('id', '!=', $user->id)->exists();
+
+        if ($emailTaken) {
+            return $this->validationErrorResponse([
+                'email' => ['The email is already taken.'],
+            ]);
+        }
+
+        try{
+            DB::transaction(function () use ($user, $atts){
+                $user->pending_email = $atts['email'];
+                $user->save();
+
+                // create OTP for pending email confirmation
+                $plain = random_int(100000, 999999);
+                $hashed = Hash::make((string) $plain);
+                $expiresAt = Carbon::now()->addMinutes(10);
+
+                Otp::where('user_id', $user->id)->delete();
+
+                Otp::create([
+                    'user_id' => $user->id,
+                    'code' => $hashed,
+                    'channel' => 'email',
+                    'expires_at' => $expiresAt,
+                ]);
+
+                // send OTP to pending email address (not the current one)
+                Notification::route('mail', $atts['email'])
+                    ->notify(new OtpNotification((string) $plain, 'email'));
+
+                // force re-auth after requesting email change
+                $user->tokens()->delete();
+            });
+        }catch(\Exception $e){
+            return $this->errorResponse('Failed to update email if you have been logged out after this message pleas call the support team', 500);
+        }
+            return $this->successResponse(null,'Email change requested. We sent an OTP to your new email. Your current email stays active until verification succeeds.');
+    }
+
 
     public function follow(Request $request, string $username)
     {
         $actor = $request->user();
-        $targetUser = User::where('username', $username)->first();
+        $targetUser = User::findByUsername($username);
 
         if (! $targetUser) {
             return $this->notFoundResponse('User not found');
@@ -117,7 +220,7 @@ class UserController extends Controller
     public function unfollow(Request $request, string $username)
     {
         $actor = $request->user();
-        $targetUser = User::where('username', $username)->first();
+        $targetUser = User::findByUsername($username);
 
         if (! $targetUser) {
             return $this->notFoundResponse('User not found');

@@ -11,10 +11,11 @@ use App\Models\User;
 use App\Traits\ApiResponseTrait;
 use App\Http\Resources\BlogResource;
 use App\Http\Requests\StoreBlogRequest;
-use App\Models\Section;
+use App\Http\Requests\UpdateBlogRequest;
 use App\Services\ActivityService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class BlogController extends Controller
 {
@@ -127,23 +128,61 @@ class BlogController extends Controller
     /**
      * Update the specified blog.
      */
-    public function update(Request $request, Blog $blog)
+    public function update(UpdateBlogRequest $request, Blog $blog)
     {
         $this->authorize('update', $blog);
+
         $wasPublished = (bool) $blog->is_published;
-        $atts=$request->validate([
-            'title' => 'sometimes|string',
-            'body' => 'sometimes|string',
-            'tags'=>'array|sometimes',
-            'tags.*'=>'exists:tags,id',
-            'is_published' => 'sometimes|boolean'
-        ]);
-        $blog->update($atts);
-        $this->syncPublishedBlogCounter($blog->user_id, $wasPublished, (bool) $blog->is_published);
-        if(isset($atts['tags'])){
-            $blog->tags()->sync($atts['tags']);
+        $validated = $request->validated();
+        $newCoverImagePath = null;
+        $oldCoverImagePathToDelete = null;
+
+        try {
+            DB::transaction(function () use ($request, $blog, $validated, &$newCoverImagePath, &$oldCoverImagePathToDelete): void {
+                $attributes = $validated;
+
+                if ($request->hasFile('cover_image')) {
+                    $newCoverImagePath = $request->file('cover_image')->store('cover_images', 'public');
+                    if ($blog->cover_image_path) {
+                        $oldCoverImagePathToDelete = $blog->cover_image_path;
+                    }
+                    $attributes['cover_image_path'] = $newCoverImagePath;
+                }
+
+                if (($validated['remove_cover_image'] ?? false) === true) {
+                    if (! $oldCoverImagePathToDelete && $blog->cover_image_path) {
+                        $oldCoverImagePathToDelete = $blog->cover_image_path;
+                    }
+                    $attributes['cover_image_path'] = null;
+                }
+
+                unset($attributes['cover_image']);
+                unset($attributes['remove_cover_image']);
+
+                if (! empty($attributes)) {
+                    $blog->update($attributes);
+                }
+            });
+        } catch (\Throwable $e) {
+            if ($newCoverImagePath) {
+                Storage::disk('public')->delete($newCoverImagePath);
+            }
+
+            Log::error('Error updating blog: ' . $e->getMessage());
+
+            return $this->errorResponse('Failed to update blog', 500);
         }
-        return $this->successResponse(new BlogResource($blog->load('user')), 'Blog updated successfully');
+
+        if ($oldCoverImagePathToDelete) {
+            Storage::disk('public')->delete($oldCoverImagePathToDelete);
+        }
+
+        $this->syncPublishedBlogCounter($blog->user_id, $wasPublished, (bool) $blog->is_published);
+
+        return $this->successResponse(
+            new BlogResource($blog->load(['user', 'tags', 'sections'])),
+            'Blog updated successfully'
+        );
     }
 
     /**

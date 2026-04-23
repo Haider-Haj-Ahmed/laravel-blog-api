@@ -20,14 +20,13 @@ class ProfileController extends Controller
      */
     public function show($username)
     {
-        $user = User::where('username', $username)
-            ->with('profile.tags')
-            ->first();
+        $user = User::findByUsername($username);
+        
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
-
+        $user->load('profile.tags');
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
     }
 
@@ -138,7 +137,7 @@ class ProfileController extends Controller
      */
     public function posts($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
@@ -162,7 +161,7 @@ class ProfileController extends Controller
      */
     public function blogs($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\UsernameMap;
 
 class User extends Authenticatable
 {
@@ -72,6 +73,31 @@ class User extends Authenticatable
     }
 
     /**
+     * Find user by username with fallback to username mappings.
+     * 
+     * @param string $username The username to search for
+     * @return \App\Models\User|null
+     */
+    public static function findByUsername(string $username)
+    {
+        // Try direct lookup first (fast path)
+        $user = self::where('username', $username)->first();
+        
+        if ($user) {
+            return $user;
+        }
+        
+        // Fall back to old username mapping
+        $mapping = UsernameMap::where('old', $username)->latest()->first();
+        
+        if ($mapping) {
+            return self::where('username', $mapping->current)->first();
+        }
+        
+        return null;
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -80,6 +106,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'pending_email',
         'password',
         'username',
         'phone',
