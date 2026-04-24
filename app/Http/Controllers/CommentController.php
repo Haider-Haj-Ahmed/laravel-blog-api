@@ -16,6 +16,8 @@ use App\Services\RecommendationCacheService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
+use App\Events\CommentUnhighlighted;
+use App\Notifications\HighlightedCommentUpdatedNotification;
 use App\Events\PostCommented;
 use App\Events\BlogCommented;
 use App\Models\Activity;
@@ -230,6 +232,7 @@ class CommentController extends Controller
         preg_match_all('/@([\w\-]+)/', $comment->body, $matches);
 
         $oldUsernames = $matches[1] ?? [];
+        $shouldMarkModified = $this->commentContentChanged($comment, $atts);
         $b=$comment->update([
             'body' => $atts['body'] ?? $comment->body,
             'code' => $atts['code'] ?? $comment->code,
@@ -238,9 +241,18 @@ class CommentController extends Controller
         if(!$b){
             return $this->errorResponse('Failed to update comment', 500);
         }
+
+        if ($shouldMarkModified) {
+            $comment->forceFill(['is_modified' => true])->save();
+        }
+
         $this->handleMentions($comment, $oldUsernames);
         if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
+        }
+
+        if ($shouldMarkModified && $comment->is_highlighted) {
+            $this->notifySubjectOwnerOfHighlightedCommentEdit($comment, $request->user());
         }
 
         // Load relationships and return resource
@@ -415,10 +427,32 @@ class CommentController extends Controller
             return $this->forbiddenResponse('You are not authorized to highlight this comment');
         }
 
-        // Dispatch the highlight event
-        CommentHighlighted::dispatch($comment, $request->user());
+        $cooldownKey = "comment:highlight-toggle:{$request->user()->id}:{$comment->id}";
+        $cooldownSeconds = 3;
 
-        return $this->successResponse(null, 'Comment highlighted successfully');
+        if (! Cache::add($cooldownKey, true, now()->addSeconds($cooldownSeconds))) {
+            return $this->errorResponse('Please wait a moment before toggling highlight again.', 429);
+        }
+
+        $comment->is_highlighted = ! (bool) $comment->is_highlighted;
+        $comment->save();
+
+        if ($comment->is_highlighted) {
+            CommentHighlighted::dispatch($comment, $request->user());
+        } else {
+            CommentUnhighlighted::dispatch($comment, $request->user());
+        }
+
+        $comment->load(['user', 'mentions']);
+        $comment->setAttribute(
+            'is_liked_by_user',
+            $comment->likes()->where('user_id', $request->user()->id)->exists()
+        );
+
+        return $this->successResponse(
+            new CommentResource($comment),
+            $comment->is_highlighted ? 'Comment highlighted successfully' : 'Comment unhighlighted successfully'
+        );
     }
     public function suggest(Request $request)
     {
@@ -518,6 +552,32 @@ class CommentController extends Controller
                 ->where('comments_count', '>', 0)
                 ->decrement('comments_count');
         }
+    }
+
+    private function commentContentChanged(Comment $comment, array $validated): bool
+    {
+        foreach (['body', 'code', 'code_language'] as $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+
+            if ($comment->{$field} !== $validated[$field]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function notifySubjectOwnerOfHighlightedCommentEdit(Comment $comment, User $editor): void
+    {
+        $subjectOwner = $comment->post?->user ?? $comment->blog?->user;
+
+        if (! $subjectOwner || $subjectOwner->id === $editor->id) {
+            return;
+        }
+
+        $subjectOwner->notify(new HighlightedCommentUpdatedNotification($comment, $editor));
     }
 
 

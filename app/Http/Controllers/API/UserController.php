@@ -13,10 +13,13 @@ use App\Notifications\OtpNotification;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Carbon\Carbon;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -160,6 +163,155 @@ class UserController extends Controller
             return $this->errorResponse('Failed to update email if you have been logged out after this message pleas call the support team', 500);
         }
             return $this->successResponse(null,'Email change requested. We sent an OTP to your new email. Your current email stays active until verification succeeds.');
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $atts = $request->validate([
+            'email' => 'required|string|email|max:255',
+        ]);
+
+        Password::broker()->sendResetLink([
+            'email' => $atts['email'],
+        ]);
+
+        // Keep response generic to prevent account enumeration.
+        return $this->successResponse(null, 'If your email exists in our system, a password reset link has been sent.');
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $atts = $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $status = Password::broker()->reset(
+            [
+                'email' => $atts['email'],
+                'password' => $atts['password'],
+                'password_confirmation' => $request->input('password_confirmation'),
+                'token' => $atts['token'],
+            ],
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                // Invalidate all API sessions after password reset.
+                $user->tokens()->delete();
+                //this event does not do anything
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return $this->validationErrorResponse([
+                'email' => [__($status)],
+            ], 'Unable to reset password');
+        }
+
+        return $this->successResponse(null, 'Password has been reset successfully.');
+    }
+
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $atts = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:6|confirmed|different:current_password',
+        ]);
+
+        if (! Hash::check($atts['current_password'], $user->password)) {
+            return $this->validationErrorResponse([
+                'current_password' => ['The provided password is incorrect.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($atts['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        // Revoke all API tokens so sessions must be re-authenticated.
+        $user->tokens()->delete();
+
+        return $this->successResponse(null, 'Password changed successfully and you will be logged out from all devices , pleas login again.');
+    }
+
+    public function changeName(Request $request)
+    {
+        $user = $request->user();
+
+        $atts = $request->validate([
+            'name' => 'required|string|min:2|max:50',
+            'password' => 'required|string',
+        ]);
+
+        if (! Hash::check($atts['password'], $user->password)) {
+            return $this->validationErrorResponse([
+                'password' => ['The provided password is incorrect.'],
+            ]);
+        }
+
+        $name = preg_replace('/\s+/', ' ', trim($atts['name']));
+        if (strcasecmp($name, $user->name) === 0) {
+            return $this->validationErrorResponse([
+                'name' => ['Please provide a different name.'],
+            ]);
+
+        if (! preg_match("/^(?!.*\s{2,})[A-Za-z][A-Za-z .'-]{0,48}[A-Za-z]$/", $name)) {
+            return $this->validationErrorResponse([
+                'name' => ['Name format is invalid. Use letters, spaces, apostrophes, dots, and hyphens only.'],
+            ]);
+        }
+
+        $normalizedName = trim((string) preg_replace('/[^a-z0-9]+/', ' ', strtolower($name)));
+        $blockedIdentityTerms = [
+            'admin',
+            'administrator',
+            'support',
+            'moderator',
+            'staff',
+            'official',
+            'team',
+            'security',
+            'root',
+            'system',
+            'verified',
+        ];
+        $nameTokens = array_filter(explode(' ', $normalizedName));
+
+        foreach ($nameTokens as $token) {
+            if (in_array($token, $blockedIdentityTerms, true)) {
+                return $this->validationErrorResponse([
+                    'name' => ['This name is not allowed. Please choose a different display name.'],
+                ]);
+            }
+        }
+
+        }
+
+        $cooldownKey = "user:{$user->id}:name-change-cooldown";
+        $cooldownUntil = Cache::get($cooldownKey);
+
+        if ($cooldownUntil && now()->lt(Carbon::parse($cooldownUntil))) {
+            return $this->validationErrorResponse([
+                'name' => ['You can change your name again after ' . Carbon::parse($cooldownUntil)->toDateTimeString() . '.'],
+            ], 'Name change is on cooldown');
+        }
+
+        $user->name = $name;
+        $user->save();
+
+        Cache::put($cooldownKey, now()->addDay()->toDateTimeString(), now()->addDay());
+
+        return $this->successResponse([
+            'name' => $user->name,
+        ], 'Name updated successfully.');
     }
 
 

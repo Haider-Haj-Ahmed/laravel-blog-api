@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\Storage;
 class Post extends Model
 {
     use HasFactory;
-    protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published'];
+    protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published', 'is_modified'];
 
     protected $casts = [
         'is_published' => 'boolean',
+        'is_modified' => 'boolean',
         'comments_count' => 'integer',
         'likes_count' => 'integer',
         'views_count' => 'integer',

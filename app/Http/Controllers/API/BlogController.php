@@ -28,12 +28,21 @@ class BlogController extends Controller
     /**
      * Display a listing of published blogs.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $blogs = Blog::with('user')
+        $viewerId = auth('sanctum')->id();
+
+        $blogsQuery = Blog::with('user')
             ->where('is_published', true)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        if ($viewerId) {
+            $blogsQuery->withExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $blogs = $blogsQuery->paginate(15);
 
         return $this->paginatedResponse(
             BlogResource::collection($blogs),
@@ -120,6 +129,12 @@ class BlogController extends Controller
             return $this->forbiddenResponse('You are not authorized to view this blog');
         }
 
+        if ($viewer) {
+            $blog->loadExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewer->id),
+            ]);
+        }
+
         $blog->load(['tags','sections']);
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog retrieved successfully');
@@ -134,11 +149,12 @@ class BlogController extends Controller
 
         $wasPublished = (bool) $blog->is_published;
         $validated = $request->validated();
+        $shouldMarkModified = $this->blogContentChanged($blog, $validated, $request->hasFile('cover_image'), ($validated['remove_cover_image'] ?? false));
         $newCoverImagePath = null;
         $oldCoverImagePathToDelete = null;
 
         try {
-            DB::transaction(function () use ($request, $blog, $validated, &$newCoverImagePath, &$oldCoverImagePathToDelete): void {
+            DB::transaction(function () use ($request, $blog, $validated, $shouldMarkModified, &$newCoverImagePath, &$oldCoverImagePathToDelete): void {
                 $attributes = $validated;
 
                 if ($request->hasFile('cover_image')) {
@@ -161,6 +177,10 @@ class BlogController extends Controller
 
                 if (! empty($attributes)) {
                     $blog->update($attributes);
+                }
+
+                if ($shouldMarkModified) {
+                    $blog->forceFill(['is_modified' => true])->save();
                 }
             });
         } catch (\Throwable $e) {
@@ -231,11 +251,16 @@ class BlogController extends Controller
 
     public function drafts(Request $request)
     {
-        $blogs = $request->user()->blogs()
+        $blogsQuery = $request->user()->blogs()
             ->with('user')
             ->where('is_published', false)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        $blogsQuery->withExists([
+            'views as is_viewed' => fn ($query) => $query->where('user_id', $request->user()->id),
+        ]);
+
+        $blogs = $blogsQuery->paginate(15);
 
         return $this->paginatedResponse(
             BlogResource::collection($blogs),
@@ -270,5 +295,28 @@ class BlogController extends Controller
         }
 
         User::whereKey($userId)->where('published_blogs_count', '>', 0)->decrement('published_blogs_count');
+    }
+
+    private function blogContentChanged(Blog $blog, array $validated, bool $hasCoverImage, bool $removeCoverImage): bool
+    {
+        foreach (['title', 'subtitle', 'reading_time'] as $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+
+            if ($blog->{$field} !== $validated[$field]) {
+                return true;
+            }
+        }
+
+        if ($hasCoverImage) {
+            return true;
+        }
+
+        if ($removeCoverImage && $blog->cover_image_path) {
+            return true;
+        }
+
+        return false;
     }
 }

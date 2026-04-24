@@ -33,6 +33,8 @@ class CommentResource extends JsonResource
             'user_id' =>$this->user_id,
             'post_id' => $this->post_id,
             'blog_id' => $this->blog_id,
+            'is_modified' => (bool) ($this->is_modified ?? false),
+            'is_highlighted' => (bool) ($this->is_highlighted ?? false),
             'is_liked_by_user' => $isLikedByUser,
             'user_name'=> $this->whenLoaded('user', fn () => $this->user->username), 
             'mentions' => $this->whenLoaded('mentions', function () {

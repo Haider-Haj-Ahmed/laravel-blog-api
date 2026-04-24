@@ -11,6 +11,11 @@ class Comment extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'is_highlighted' => 'boolean',
+        'is_modified' => 'boolean',
+    ];
+
     protected static function booted(): void
     {
         static::deleting(function (Comment $comment) {

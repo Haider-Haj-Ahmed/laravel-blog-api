@@ -17,10 +17,12 @@ class Blog extends Model
         'reading_time',
         'cover_image_path',
         'is_published',
+        'is_modified',
     ];
 
     protected $casts = [
         'is_published' => 'boolean',
+        'is_modified' => 'boolean',
         'comments_count' => 'integer',
         'likes_count' => 'integer',
         'views_count' => 'integer',
