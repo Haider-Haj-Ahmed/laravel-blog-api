@@ -12,6 +12,7 @@ use App\Http\Controllers\API\OtpController;
 use App\Http\Controllers\API\RoadMapController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\BlogController;
+use App\Http\Controllers\API\SectionController;
 use App\Http\Controllers\API\TagController;
 use App\Http\Controllers\API\SavedController;
 use App\Http\Controllers\API\SearchController;
@@ -19,12 +20,18 @@ use App\Http\Controllers\API\ViewController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [UserController::class, 'forgotPassword'])->middleware('throttle:5,10');
+Route::post('/reset-password', [UserController::class, 'resetPassword'])->middleware('throttle:5,10');
 Route::post('/otp/verify', [OtpController::class, 'verify'])->middleware('throttle:10,1');
 Route::post('/otp/resend', [OtpController::class, 'resend'])->middleware('throttle:5,10');
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-
+    Route::post('/updateusername',[UserController::class,'updateUsername'])->middleware('throttle:username-update');
+    Route::post('/updateemail',[UserController::class,'updateEmail'])->middleware('throttle:email-update');
+    Route::post('/change-password', [UserController::class, 'changePassword'])->middleware('throttle:5,10');
+    Route::post('/change-name', [UserController::class, 'changeName'])->middleware('throttle:5,10');
+    
     // Posts
     Route::post('/posts', [PostController::class, 'store']);
     Route::get('/posts/recommended', [PostController::class, 'recommended'])->middleware('throttle:recommended-feed');
@@ -62,6 +69,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Blogs
     Route::get('/blogs/viewers/{id}', [BlogController::class, 'viewrs']);
     Route::get('/blogs/drafts', [BlogController::class, 'drafts']);
+    Route::put('/blogs/{blog}/sections/reorder', [SectionController::class, 'reorder']);
+    Route::post('/blogs/{blog}/sections', [SectionController::class, 'store']);
+    Route::put('/blogs/{blog}/sections/{section}', [SectionController::class, 'update']);
+    Route::delete('/blogs/{blog}/sections/{section}', [SectionController::class, 'destroy']);
     Route::apiResource('/blogs', BlogController::class);
 
     // Following

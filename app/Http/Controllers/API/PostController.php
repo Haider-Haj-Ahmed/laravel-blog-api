@@ -33,12 +33,21 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $posts = Post::with(['user', 'photos'])
+        $viewerId = auth('sanctum')->id();
+
+        $postsQuery = Post::with(['user', 'photos'])
             ->where('is_published', true)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        if ($viewerId) {
+            $postsQuery->withExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $posts = $postsQuery->paginate(15);
 
         return $this->paginatedResponse(
             PostResource::collection($posts),
@@ -101,8 +110,16 @@ class PostController extends Controller
      */
     public function show($id)
     {
-        $post = Post::with(['user', 'photos'])
-            ->find($id);
+        $viewerId = auth('sanctum')->id();
+        $postQuery = Post::with(['user', 'photos']);
+
+        if ($viewerId) {
+            $postQuery->withExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $post = $postQuery->find($id);
 
         if (!$post) {
             return $this->notFoundResponse('Post not found');
@@ -131,8 +148,14 @@ class PostController extends Controller
             return $postOrResponse;
         }
 
+        $shouldMarkModified = $this->postContentChanged($postOrResponse, $request->validated());
         $wasPublished = (bool) $postOrResponse->is_published;
         $this->applyContentUpdate($postOrResponse, $request->validated());
+
+        if ($shouldMarkModified) {
+            $postOrResponse->forceFill(['is_modified' => true])->save();
+        }
+
         $isPublished = (bool) $postOrResponse->is_published;
         $this->syncPublishedPostCounter(
             $request->user()->id,
@@ -157,6 +180,7 @@ class PostController extends Controller
         }
 
         $this->createPhotoForPost($postOrResponse, $request->file('photo'));
+        $this->markAsModified($postOrResponse);
 
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo added successfully');
     }
@@ -178,6 +202,7 @@ class PostController extends Controller
         $replacementName = time() . '_' . $postOrResponse->user_id . '_' . $photoOrResponse->sort_order . '.' . $replacementFile->getClientOriginalExtension();
         $replacementPath = $replacementFile->storeAs('post_photos', $replacementName, 'public');
         $photoOrResponse->update(['path' => $replacementPath]);
+        $this->markAsModified($postOrResponse);
 
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo replaced successfully');
     }
@@ -197,6 +222,7 @@ class PostController extends Controller
         $this->deleteStoredPhoto($photoOrResponse->path);
         $photoOrResponse->delete();
         $this->normalizePhotoSortOrder($postOrResponse);
+        $this->markAsModified($postOrResponse);
 
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post photo deleted successfully');
     }
@@ -268,11 +294,16 @@ class PostController extends Controller
 
     public function drafts(Request $request)
     {
-        $posts = $request->user()->posts()
+        $postsQuery = $request->user()->posts()
             ->with(['user', 'photos'])
             ->where('is_published', false)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        $postsQuery->withExists([
+            'views as is_viewed' => fn ($query) => $query->where('user_id', $request->user()->id),
+        ]);
+
+        $posts = $postsQuery->paginate(15);
 
         return $this->paginatedResponse(
             PostResource::collection($posts),
@@ -393,6 +424,28 @@ class PostController extends Controller
                 'path' => $storedPath,
                 'sort_order' => $index,
             ]);
+        }
+    }
+
+    private function postContentChanged(Post $post, array $validated): bool
+    {
+        foreach (['title', 'body', 'code', 'code_language'] as $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+
+            if ($post->{$field} !== $validated[$field]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function markAsModified(Post $post): void
+    {
+        if (! $post->is_modified) {
+            $post->forceFill(['is_modified' => true])->save();
         }
     }
      public function viewrs(Request $request,$id){

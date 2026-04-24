@@ -8,6 +8,7 @@ use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentVerified;
 use App\Events\CommentHighlighted;
+use App\Events\CommentUnhighlighted;
 use App\Events\PostLiked;
 use App\Events\BlogLiked;
 use App\Events\PostCommented;
@@ -16,6 +17,7 @@ use App\Listeners\AwardPointsForLike;
 use App\Listeners\DeductPointsForDislike;
 use App\Listeners\AwardPointsForVerification;
 use App\Listeners\AwardPointsForHighlight;
+use App\Listeners\DeductPointsForUnhighlight;
 use App\Listeners\LogCommentEventActivity;
 use App\Listeners\SendCommentEventNotification;
 use App\Listeners\LogContentEventActivity;
@@ -48,6 +50,10 @@ class EventServiceProvider extends ServiceProvider
             AwardPointsForHighlight::class,
             LogCommentEventActivity::class,
             SendCommentEventNotification::class,
+        ],
+        CommentUnhighlighted::class => [
+            DeductPointsForUnhighlight::class,
+            LogCommentEventActivity::class,
         ],
         PostLiked::class => [
             LogContentEventActivity::class,

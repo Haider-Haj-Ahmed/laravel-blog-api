@@ -9,6 +9,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Notification;
 use App\Notifications\OtpNotification;
 use App\Traits\ApiResponseTrait;
 
@@ -23,10 +24,17 @@ class OtpController extends Controller
     public function verify(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email',
             'code' => 'required|string',
         ]);
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+            ->orWhere('pending_email', $request->email)
+            ->first();
+
+        if (! $user) {
+            return $this->notFoundResponse('User not found');
+        }
+
         $otp = Otp::where('user_id', $user->id)->latest()->first();
 
         if (!$otp) {
@@ -55,7 +63,12 @@ class OtpController extends Controller
         if ($otp->channel === 'sms') {
             $user->phone_verified_at = $user->phone_verified_at ?? now();
         } else {
-            // default to email verification for non-sms channel
+            // If this verifies a pending email change, swap it in now.
+            if (!empty($user->pending_email) && strcasecmp($user->pending_email, $request->email) === 0) {
+                $user->email = $user->pending_email;
+                $user->pending_email = null;
+            }
+
             $user->email_verified_at = $user->email_verified_at ?? now();
         }
         $user->save();
@@ -76,21 +89,28 @@ class OtpController extends Controller
     public function resend(Request $request)
     {
         $request->validate([
-            'email' => 'required|integer|exists:users,email',
+            'email' => 'required|email',
             'channel' => 'nullable|in:email,sms'
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+            ->orWhere('pending_email', $request->email)
+            ->first();
+
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
-        if ($user->email_verified_at || $user->phone_verified_at) {
+
+        $isPendingEmailVerification = !empty($user->pending_email)
+            && strcasecmp($user->pending_email, $request->email) === 0;
+
+        if (! $isPendingEmailVerification && ($user->email_verified_at || $user->phone_verified_at)) {
             return $this->validationErrorResponse([
                 'user_id' => ['This account is already verified.'],
             ]);
         }
 
-        $channel = $request->channel ?? 'email';
+        $channel = $isPendingEmailVerification ? 'email' : ($request->channel ?? 'email');
         $throttleKey = sprintf('otp-resend:%s:%s:%s', $user->id, $channel, $request->ip());
 
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
@@ -118,7 +138,11 @@ class OtpController extends Controller
 
         // notify
         $notification = new OtpNotification($plain, $otp->channel);
-        $user->notify($notification);
+        if ($isPendingEmailVerification) {
+            Notification::route('mail', $user->pending_email)->notify($notification);
+        } else {
+            $user->notify($notification);
+        }
 
         // if sms channel and Twilio configured, send SMS explicitly
         if ($otp->channel === 'sms') {

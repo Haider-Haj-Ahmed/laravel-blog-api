@@ -11,7 +11,7 @@ class UserController extends Controller
     use ApiResponseTrait;
     public function showByUsername($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');

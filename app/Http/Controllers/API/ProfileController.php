@@ -20,13 +20,26 @@ class ProfileController extends Controller
      */
     public function show($username)
     {
-        $user = User::where('username', $username)
-            ->with('profile.tags')
-            ->first();
+        $user = User::findByUsername($username);
+        
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
+
+        $viewerId = auth('sanctum')->id();
+
+        $user->load([
+            'profile' => function ($query) use ($viewerId) {
+                $query->with('tags');
+
+                if ($viewerId) {
+                    $query->withExists([
+                        'views as is_viewed' => fn ($viewQuery) => $viewQuery->where('user_id', $viewerId),
+                    ]);
+                }
+            },
+        ]);
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
     }
@@ -46,7 +59,11 @@ class ProfileController extends Controller
         }
 
         $user->load([
-            'profile.tags',
+            'profile' => function ($query) use ($user) {
+                $query->with('tags')->withExists([
+                    'views as is_viewed' => fn ($viewQuery) => $viewQuery->where('user_id', $user->id),
+                ]);
+            },
         ]);
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
@@ -138,18 +155,27 @@ class ProfileController extends Controller
      */
     public function posts($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
 
-        $posts = $user->posts()
+        $viewerId = auth('sanctum')->id();
+
+        $postsQuery = $user->posts()
             ->with('user')
             ->with('tags')
             ->where('is_published', true)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        if ($viewerId) {
+            $postsQuery->withExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $posts = $postsQuery->paginate(15);
 
         return $this->paginatedResponse(
             \App\Http\Resources\PostResource::collection($posts),
@@ -162,17 +188,26 @@ class ProfileController extends Controller
      */
     public function blogs($username)
     {
-        $user = User::where('username', $username)->first();
+        $user = User::findByUsername($username);
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
         }
 
-        $blogs = $user->blogs()
+        $viewerId = auth('sanctum')->id();
+
+        $blogsQuery = $user->blogs()
             ->with('user')
             ->where('is_published', true)
-            ->latest()
-            ->paginate(15);
+            ->latest();
+
+        if ($viewerId) {
+            $blogsQuery->withExists([
+                'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+        }
+
+        $blogs = $blogsQuery->paginate(15);
 
         return $this->paginatedResponse(
             \App\Http\Resources\BlogResource::collection($blogs),
