@@ -172,8 +172,13 @@ class BlogController extends Controller
                     $attributes['cover_image_path'] = null;
                 }
 
+                if (array_key_exists('tags', $validated)) {
+                    $blog->tags()->sync($validated['tags'] ?? []);
+                }
+
                 unset($attributes['cover_image']);
                 unset($attributes['remove_cover_image']);
+                unset($attributes['tags']);
 
                 if (! empty($attributes)) {
                     $blog->update($attributes);

@@ -44,7 +44,7 @@ class PasswordChangeFlowTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('status', 'success')
-            ->assertJsonPath('message', 'Password changed successfully and you will be logged out from all devices , pleas login again.');
+            ->assertJsonPath('message', 'Password changed successfully. You have been logged out from all devices. Please log in again.');
 
         $user->refresh();
 
