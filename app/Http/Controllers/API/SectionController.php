@@ -153,7 +153,7 @@ class SectionController extends Controller
             foreach ($remainingSectionIds as $index => $sectionId) {
                 Section::query()
                     ->whereKey($sectionId)
-                    ->update(['order' => $index]);
+                    ->update(['order' => $index + 1]);
             }
         });
 
@@ -169,13 +169,22 @@ class SectionController extends Controller
         $this->authorize('update', $blog);
 
         $sections = $request->validated()['sections'];
-        $blogSectionIds = $blog->sections()->pluck('id')->all();
+        $blogSectionIds = $blog->sections()
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
         $incomingSectionIds = array_map(static fn (array $item): int => (int) $item['id'], $sections);
 
         $invalidIds = array_diff($incomingSectionIds, $blogSectionIds);
-        if (! empty($invalidIds)) {
+        $missingIds = array_diff($blogSectionIds, $incomingSectionIds);
+
+        if (
+            count($incomingSectionIds) !== count($blogSectionIds)
+            || ! empty($invalidIds)
+            || ! empty($missingIds)
+        ) {
             return $this->validationErrorResponse([
-                'sections' => ['One or more sections do not belong to this blog.'],
+                'sections' => ['The sections payload must include every section for this blog exactly once.'],
             ]);
         }
 

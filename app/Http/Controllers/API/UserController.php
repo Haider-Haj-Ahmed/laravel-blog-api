@@ -102,7 +102,10 @@ class UserController extends Controller
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to update username', 500);
         }
-        return $this->successResponse(new UserSummaryResource($user),'your username has been successfuly updated our system will keep track of your previous username to redirect links to the new one');
+        return $this->successResponse(
+            new UserSummaryResource($user),
+            'Your username has been successfully updated. Our system will keep track of your previous username to redirect links to the new one.'
+        );
     }
     public function updateEmail(Request $request){
         $user=$request->user();
@@ -160,7 +163,10 @@ class UserController extends Controller
                 $user->tokens()->delete();
             });
         }catch(\Exception $e){
-            return $this->errorResponse('Failed to update email if you have been logged out after this message pleas call the support team', 500);
+            return $this->errorResponse(
+                'Failed to update email. If you were logged out after this message, please contact the support team.',
+                500
+            );
         }
             return $this->successResponse(null,'Email change requested. We sent an OTP to your new email. Your current email stays active until verification succeeds.');
     }
@@ -239,7 +245,10 @@ class UserController extends Controller
         // Revoke all API tokens so sessions must be re-authenticated.
         $user->tokens()->delete();
 
-        return $this->successResponse(null, 'Password changed successfully and you will be logged out from all devices , pleas login again.');
+        return $this->successResponse(
+            null,
+            'Password changed successfully. You have been logged out from all devices. Please log in again.'
+        );
     }
 
     public function changeName(Request $request)
@@ -262,6 +271,7 @@ class UserController extends Controller
             return $this->validationErrorResponse([
                 'name' => ['Please provide a different name.'],
             ]);
+        }
 
         if (! preg_match("/^(?!.*\s{2,})[A-Za-z][A-Za-z .'-]{0,48}[A-Za-z]$/", $name)) {
             return $this->validationErrorResponse([
@@ -291,8 +301,6 @@ class UserController extends Controller
                     'name' => ['This name is not allowed. Please choose a different display name.'],
                 ]);
             }
-        }
-
         }
 
         $cooldownKey = "user:{$user->id}:name-change-cooldown";

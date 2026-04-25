@@ -18,6 +18,8 @@ class UpdateBlogRequest extends FormRequest
             'title' => 'sometimes|string|max:255',
             'subtitle' => 'sometimes|string',
             'reading_time' => 'sometimes|nullable|string|max:50',
+            'tags' => 'sometimes|array',
+            'tags.*' => 'exists:tags,id',
             'is_published' => 'sometimes|boolean',
             'cover_image' => 'sometimes|nullable|image|max:2048',
             'remove_cover_image' => 'sometimes|boolean',
