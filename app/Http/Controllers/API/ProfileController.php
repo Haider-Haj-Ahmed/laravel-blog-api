@@ -21,7 +21,7 @@ class ProfileController extends Controller
     public function show($username)
     {
         $user = User::findByUsername($username);
-        
+
 
         if (!$user) {
             return $this->notFoundResponse('User not found');
@@ -47,7 +47,7 @@ class ProfileController extends Controller
     /**
      * Display the authenticated user's profile.
      */
-    public function showme(Request $request)
+    public function showMe(Request $request)
     {
         $user = $request->user();
 

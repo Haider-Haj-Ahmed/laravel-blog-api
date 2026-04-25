@@ -166,6 +166,11 @@ class PostController extends Controller
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post content updated successfully');
     }
 
+    public function legacyUpdate(Request $request, $id)
+    {
+        return $this->notFoundResponse('Endpoint not found. Use /posts/{post}/content or /posts/{post}/photos endpoints.');
+    }
+
     public function addPhoto(UpdatePostPhotosRequest $request, $id)
     {
         $postOrResponse = $this->resolveOwnedPost($request, $id);

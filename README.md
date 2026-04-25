@@ -59,7 +59,11 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 |---|---|---|
 | POST | `/api/logout` | Logout current user |
 | POST | `/api/posts` | Create post |
-| PUT | `/api/posts/{post}` | Update own post |
+| PUT | `/api/posts/{post}` | Deprecated legacy update endpoint (returns 404) |
+| PUT | `/api/posts/{post}/content` | Update own post content |
+| POST | `/api/posts/{post}/photos` | Add one post photo |
+| PUT | `/api/posts/{post}/photos/{photo}` | Replace one post photo |
+| DELETE | `/api/posts/{post}/photos/{photo}` | Delete one post photo |
 | DELETE | `/api/posts/{post}` | Delete own post |
 | GET | `/api/posts/recommended` | Personalized feed |
 | GET | `/api/posts/drafts` | Current user draft posts |
@@ -69,7 +73,6 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | GET | `/api/blogs/drafts` | Current user draft blogs |
 | GET | `/api/blogs/viewers/{id}` | Blog viewers |
 | POST | `/api/comments` | Create comment for post/blog |
-| POST | `/api/blogs/{blog}/comments` | Create comment scoped by blog route param |
 | GET | `/api/comments/{comment}` | Comment details |
 | POST | `/api/comments/{comment}` | Update own comment |
 | POST | `/api/comments/{comment}/like` | Like/unlike-style toggle for comment likes |
@@ -85,7 +88,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | POST | `/api/saves` | Save content (`type`, `id`) |
 | DELETE | `/api/saves` | Remove saved content (`type`, `id`) |
 | POST | `/api/views` | Record view (`type=post|blog|profile`, `id`) |
-| GET | `/api/showme` | Get current user's profile |
+| GET | `/api/show-me` | Get current user's profile |
 | PUT | `/api/profile` | Update own profile |
 | GET | `/api/profiles/{profile}` | Profile details by profile id |
 | GET | `/api/profiles/viewers/{id}` | Profile viewers |
@@ -127,5 +130,7 @@ Optional integrations in `.env`: Pusher, Twilio, mail providers, and AI provider
 ## Related docs
 
 - `docs/API_RESPONSE_TRAIT.md`
+- `docs/API_CONTRACT.md`
+- `docs/api-contract.openapi.yaml`
 - `LIKES_IMPLEMENTATION_CHECKLIST.md`
 - `POSTMAN_LIKES_TESTING.md`

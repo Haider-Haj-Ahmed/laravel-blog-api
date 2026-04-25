@@ -31,11 +31,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/updateemail',[UserController::class,'updateEmail'])->middleware('throttle:email-update');
     Route::post('/change-password', [UserController::class, 'changePassword'])->middleware('throttle:5,10');
     Route::post('/change-name', [UserController::class, 'changeName'])->middleware('throttle:5,10');
-    
+
     // Posts
     Route::post('/posts', [PostController::class, 'store']);
     Route::get('/posts/recommended', [PostController::class, 'recommended'])->middleware('throttle:recommended-feed');
     Route::get('/posts/drafts', [PostController::class, 'drafts']);
+    Route::put('/posts/{post}', [PostController::class, 'legacyUpdate']);
     Route::put('/posts/{post}/content', [PostController::class, 'updateContent']);
     Route::post('/posts/{post}/photos', [PostController::class, 'addPhoto']);
     Route::put('/posts/{post}/photos/{photo}', [PostController::class, 'replacePhoto']);
@@ -88,7 +89,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/views', [ViewController::class, 'store'])->middleware('throttle:engagement-actions');
 
     // Profile
-    Route::get('/showme', [ProfileController::class, 'showme']);
+    Route::get('/show-me', [ProfileController::class, 'showMe']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
     // some tags routes

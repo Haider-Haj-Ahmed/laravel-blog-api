@@ -1,0 +1,2769 @@
+openapi: 3.0.3
+info:
+  title: TechTalk API
+  version: 1.0.0
+  description: |
+    Frontend-consumable API contract for the Laravel backend.
+
+    Notes:
+    - Default JSON envelope:
+      - success: { status: success, message, data }
+      - error: { status: error, message, errors? }
+    - Paginated endpoints include `pagination` metadata.
+    - `POST /generate-uml` returns binary `image/png`, not JSON.
+servers:
+  - url: /api
+    description: API base path
+tags:
+  - name: Auth
+  - name: Users
+  - name: Profile
+  - name: Posts
+  - name: Blogs
+  - name: Sections
+  - name: Comments
+  - name: Notifications
+  - name: Activity
+  - name: Saved
+  - name: Views
+  - name: Tags
+  - name: Roadmaps
+  - name: Search
+  - name: Utilities
+
+paths:
+  /register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered (OTP required for authentication)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserModel'
+                          user_id:
+                            type: integer
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserModel'
+                          access_token:
+                            type: string
+                          token_type:
+                            type: string
+                            example: Bearer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /logout:
+    post:
+      tags: [Auth]
+      summary: Logout current/all devices
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request reset password link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, token, password, password_confirmation]
+              properties:
+                email:
+                  type: string
+                  format: email
+                token:
+                  type: string
+                password:
+                  type: string
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and issue token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+      responses:
+        '200':
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserModel'
+                          access_token:
+                            type: string
+                          token_type:
+                            type: string
+                            example: Bearer
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/Error429'
+
+  /otp/resend:
+    post:
+      tags: [Auth]
+      summary: Resend OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                channel:
+                  type: string
+                  enum: [email, sms]
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/Error429'
+
+  /change-password:
+    post:
+      tags: [Auth]
+      summary: Change password
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, password, password_confirmation]
+              properties:
+                current_password:
+                  type: string
+                password:
+                  type: string
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /change-name:
+    post:
+      tags: [Auth]
+      summary: Change display name
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, password]
+              properties:
+                name:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Name updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /updateusername:
+    post:
+      tags: [Users]
+      summary: Update username
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Username updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSummary'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /updateemail:
+    post:
+      tags: [Users]
+      summary: Request email change (OTP required)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /posts:
+    get:
+      tags: [Posts]
+      summary: List published posts
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedPosts'
+    post:
+      tags: [Posts]
+      summary: Create post
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorePostRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePostRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessPost'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /posts/{post}:
+    get:
+      tags: [Posts]
+      summary: Get post by id
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessPost'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    put:
+      tags: [Posts]
+      summary: Deprecated legacy update endpoint
+      deprecated: true
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '404':
+          $ref: '#/components/responses/Error404'
+    delete:
+      tags: [Posts]
+      summary: Delete post
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /posts/{post}/content:
+    put:
+      tags: [Posts]
+      summary: Update post content
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostContentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessPost'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /posts/{post}/photos:
+    post:
+      tags: [Posts]
+      summary: Add photo to post
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessPost'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /posts/{post}/photos/{photo}:
+    put:
+      tags: [Posts]
+      summary: Replace photo
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+        - $ref: '#/components/parameters/PhotoId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessPost'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Posts]
+      summary: Delete photo
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+        - $ref: '#/components/parameters/PhotoId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessPost'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /posts/recommended:
+    get:
+      tags: [Posts]
+      summary: Get recommended posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedPosts'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /posts/drafts:
+    get:
+      tags: [Posts]
+      summary: List current user drafts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedPosts'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /posts/viewers/{id}:
+    get:
+      tags: [Posts]
+      summary: List post viewers (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Viewer list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          viewers:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Viewer'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /posts/{post}/toggle-like:
+    post:
+      tags: [Posts]
+      summary: Toggle like on post
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Like toggled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_liked:
+                            type: boolean
+                          likes_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /posts/{post}/comments:
+    get:
+      tags: [Comments]
+      summary: List post comments
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedComments'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /blogs:
+    get:
+      tags: [Blogs]
+      summary: List published blogs
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedBlogs'
+    post:
+      tags: [Blogs]
+      summary: Create blog
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreBlogRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBlogRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessBlog'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /blogs/{blog}:
+    get:
+      tags: [Blogs]
+      summary: Get blog by id
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessBlog'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    put:
+      tags: [Blogs]
+      summary: Update blog
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateBlogRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlogRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessBlog'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Blogs]
+      summary: Partial update blog
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlogRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessBlog'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Blogs]
+      summary: Delete blog
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /blogs/{blog}/toggle-like:
+    post:
+      tags: [Blogs]
+      summary: Toggle like on blog
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      responses:
+        '200':
+          description: Like toggled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_liked:
+                            type: boolean
+                          likes_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /blogs/drafts:
+    get:
+      tags: [Blogs]
+      summary: List current user blog drafts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedBlogs'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /blogs/viewers/{id}:
+    get:
+      tags: [Blogs]
+      summary: List blog viewers (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Viewer list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          viewers:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Viewer'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /blogs/{blog}/comments:
+    get:
+      tags: [Comments]
+      summary: List blog comments
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedComments'
+
+  /blogs/{blog}/sections:
+    post:
+      tags: [Sections]
+      summary: Create section for blog
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreBlogSectionRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBlogSectionRequest'
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Section'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /blogs/{blog}/sections/{section}:
+    put:
+      tags: [Sections]
+      summary: Update section
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+        - $ref: '#/components/parameters/SectionId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateBlogSectionRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlogSectionRequest'
+      responses:
+        '200':
+          description: Section updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Section'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Sections]
+      summary: Delete section
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+        - $ref: '#/components/parameters/SectionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /blogs/{blog}/sections/reorder:
+    put:
+      tags: [Sections]
+      summary: Reorder blog sections
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BlogId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderBlogSectionsRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessBlog'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /comments:
+    post:
+      tags: [Comments]
+      summary: Create comment for post/blog
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreCommentPayload'
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessComment'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /comments/{comment}:
+    get:
+      tags: [Comments]
+      summary: Show comment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessComment'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+    post:
+      tags: [Comments]
+      summary: Update comment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+                code:
+                  type: string
+                  nullable: true
+                code_language:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessComment'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Comments]
+      summary: Delete comment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /comments/{comment}/like:
+    post:
+      tags: [Comments]
+      summary: Toggle like on comment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommentLikeStatus'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /comments/{comment}/dislike:
+    post:
+      tags: [Comments]
+      summary: Toggle dislike on comment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommentLikeStatus'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /comments/{comment}/children:
+    get:
+      tags: [Comments]
+      summary: Get child comments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Child comments list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          children:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Comment'
+                          total_pages:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /comments/{comment}/highlight:
+    post:
+      tags: [Comments]
+      summary: Toggle comment highlight (content owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessComment'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Get unread notifications count
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          unread_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /notifications/{notification}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: notification
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /activity:
+    get:
+      tags: [Activity]
+      summary: Get activity history for authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Activity'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /saved:
+    get:
+      tags: [Saved]
+      summary: List saved items
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [post, blog, all]
+      responses:
+        '200':
+          description: Saved feed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedItem'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /saves:
+    post:
+      tags: [Saved]
+      summary: Save post/blog
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveRequest'
+      responses:
+        '200':
+          description: Save state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          saved:
+                            type: boolean
+                          kind:
+                            type: string
+                            enum: [post, blog]
+                          saved_at:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Saved]
+      summary: Remove from saved
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /views:
+    post:
+      tags: [Views]
+      summary: Record a view
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, id]
+              properties:
+                type:
+                  type: string
+                  enum: [post, blog, profile]
+                id:
+                  type: integer
+      responses:
+        '200':
+          description: View response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          view_recorded:
+                            type: boolean
+                          already_viewed:
+                            type: boolean
+                          type:
+                            type: string
+                          id:
+                            type: integer
+                          views_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /show-me:
+    get:
+      tags: [Profile]
+      summary: Get authenticated user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessProfile'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /profile:
+    put:
+      tags: [Profile]
+      summary: Update authenticated profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessProfile'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /profiles/{profile}:
+    get:
+      tags: [Profile]
+      summary: Get profile by profile id
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profile model payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /profiles:
+    get:
+      tags: [Profile]
+      summary: List profiles
+      responses:
+        '200':
+          description: Paginated profile models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnvelope'
+
+  /profiles/viewers/{id}:
+    get:
+      tags: [Profile]
+      summary: List profile viewers (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Viewer list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          viewers:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Viewer'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /users/{username}:
+    get:
+      tags: [Users]
+      summary: Get user summary by username
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSummary'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /users/{username}/profile:
+    get:
+      tags: [Profile]
+      summary: Get profile by username
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessProfile'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /users/{username}/posts:
+    get:
+      tags: [Posts]
+      summary: Get published posts by username
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedPosts'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /users/{username}/blogs:
+    get:
+      tags: [Blogs]
+      summary: Get published blogs by username
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedBlogs'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /users/{username}/follow:
+    post:
+      tags: [Users]
+      summary: Follow user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Followed state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_following:
+                            type: boolean
+                          followers_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Users]
+      summary: Unfollow user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Followed state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_following:
+                            type: boolean
+                          followers_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /updatepost/tags/{post}:
+    post:
+      tags: [Tags]
+      summary: Sync tags for owned post
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSyncRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /updateprofile/tags/{profile}:
+    post:
+      tags: [Tags]
+      summary: Sync tags for owned profile
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSyncRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /survy:
+    post:
+      tags: [Tags]
+      summary: Initial profile tags survey
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSyncRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /tags:
+    get:
+      tags: [Tags]
+      summary: List tags
+      responses:
+        '200':
+          description: Tags
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+
+  /roadmaps:
+    get:
+      tags: [Roadmaps]
+      summary: List roadmaps
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+
+  /roadmaps/{id}:
+    get:
+      tags: [Roadmaps]
+      summary: Show roadmap with nodes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /search:
+    post:
+      tags: [Search]
+      summary: Search posts/blogs/users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                tab:
+                  type: string
+                  enum: [posts, blogs, users]
+                tags:
+                  type: array
+                  items:
+                    type: integer
+                page:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /suggestions:
+    post:
+      tags: [Search]
+      summary: Mention suggestions
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [q]
+              properties:
+                q:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /analyze-code:
+    post:
+      tags: [Utilities]
+      summary: Analyze code safety/classification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /compile:
+    post:
+      tags: [Utilities]
+      summary: Compile/execute code via compiler service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language, code]
+              properties:
+                language:
+                  type: string
+                code:
+                  type: string
+                input:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessAny'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /generate-uml:
+    post:
+      tags: [Utilities]
+      summary: Generate UML image (binary response)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: UML image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+
+  parameters:
+    PostId:
+      name: post
+      in: path
+      required: true
+      schema:
+        type: integer
+    BlogId:
+      name: blog
+      in: path
+      required: true
+      schema:
+        type: integer
+    CommentId:
+      name: comment
+      in: path
+      required: true
+      schema:
+        type: integer
+    SectionId:
+      name: section
+      in: path
+      required: true
+      schema:
+        type: integer
+    PhotoId:
+      name: photo
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    SuccessNoData:
+      description: Success (no data payload)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    nullable: true
+                    example: null
+
+    SuccessAny:
+      description: Success envelope with endpoint-specific data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessEnvelope'
+
+    SuccessPost:
+      description: Success with Post payload
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Post'
+
+    SuccessBlog:
+      description: Success with Blog payload
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Blog'
+
+    SuccessComment:
+      description: Success with Comment payload
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Comment'
+
+    SuccessProfile:
+      description: Success with Profile payload
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Profile'
+
+    PaginatedPosts:
+      description: Paginated posts
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+
+    PaginatedBlogs:
+      description: Paginated blogs
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Blog'
+
+    PaginatedComments:
+      description: Paginated comments
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+
+    CommentLikeStatus:
+      description: Comment engagement state
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      likes:
+                        type: integer
+                      dislikes:
+                        type: integer
+                      is_liked_by_user:
+                        type: boolean
+
+    Error400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error403:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error404:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error429:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorEnvelope'
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+          nullable: true
+        data:
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    ValidationErrorEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ErrorEnvelope'
+        - type: object
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+
+    PaginatedEnvelope:
+      type: object
+      required: [status, data, pagination]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+          nullable: true
+        data:
+          type: array
+          items:
+            type: object
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginationMeta:
+      type: object
+      required: [current_page, last_page, per_page, total, has_more_pages]
+      properties:
+        current_page:
+          type: integer
+        last_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        from:
+          type: integer
+          nullable: true
+        to:
+          type: integer
+          nullable: true
+        has_more_pages:
+          type: boolean
+
+    RegisterRequest:
+      type: object
+      required: [name, email, username, password, password_confirmation]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        password:
+          type: string
+        password_confirmation:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        avatar:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LogoutRequest:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [current, all]
+        all_devices:
+          type: boolean
+
+    StorePostRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        code:
+          type: string
+          nullable: true
+        code_language:
+          type: string
+          nullable: true
+        is_published:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: integer
+        photos:
+          type: array
+          items:
+            type: string
+            format: binary
+
+    UpdatePostContentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        code:
+          type: string
+          nullable: true
+        code_language:
+          type: string
+          nullable: true
+        is_published:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: integer
+
+    StoreBlogRequest:
+      type: object
+      required: [title, subtitle, sections]
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+        reading_time:
+          type: string
+          nullable: true
+        cover_image:
+          type: string
+          format: binary
+        tags:
+          type: array
+          items:
+            type: integer
+        sections:
+          type: array
+          items:
+            type: object
+            required: [title, content, order]
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              order:
+                type: integer
+              image:
+                type: string
+                format: binary
+        is_published:
+          type: boolean
+
+    UpdateBlogRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+        reading_time:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: integer
+        is_published:
+          type: boolean
+        cover_image:
+          type: string
+          format: binary
+        remove_cover_image:
+          type: boolean
+
+    StoreBlogSectionRequest:
+      type: object
+      required: [title, content, order]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+        image:
+          type: string
+          format: binary
+
+    UpdateBlogSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+        image:
+          type: string
+          format: binary
+        remove_image:
+          type: boolean
+
+    ReorderBlogSectionsRequest:
+      type: object
+      required: [sections]
+      properties:
+        sections:
+          type: array
+          items:
+            type: object
+            required: [id, order]
+            properties:
+              id:
+                type: integer
+              order:
+                type: integer
+
+    SaveRequest:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          enum: [post, blog]
+        id:
+          type: integer
+
+    StoreCommentPayload:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+        post_id:
+          type: integer
+          nullable: true
+        blog_id:
+          type: integer
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        code_language:
+          type: string
+          nullable: true
+        parent_id:
+          type: integer
+          nullable: true
+
+    TagSyncRequest:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        avatar:
+          type: string
+          format: binary
+        bio:
+          type: string
+        website:
+          type: string
+        location:
+          type: string
+        social_links:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: integer
+        cover_image:
+          type: string
+          format: binary
+        settings:
+          type: object
+          additionalProperties: true
+
+    UserModel:
+      type: object
+      additionalProperties: true
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        avatar_url:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        badge:
+          type: string
+          nullable: true
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+        image_url:
+          type: string
+          nullable: true
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        code:
+          type: string
+          nullable: true
+        code_language:
+          type: string
+          nullable: true
+        photo_url:
+          type: string
+          nullable: true
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              url:
+                type: string
+              sort_order:
+                type: integer
+        type:
+          type: string
+        is_published:
+          type: boolean
+        is_modified:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        comments_count:
+          type: integer
+        likes_count:
+          type: integer
+        views_count:
+          type: integer
+        is_viewed:
+          type: boolean
+        is_liked_by_user:
+          type: boolean
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    Blog:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        subtitle:
+          type: string
+        cover_image_url:
+          type: string
+          nullable: true
+        reading_time:
+          type: string
+          nullable: true
+        is_published:
+          type: boolean
+        is_modified:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        comments_count:
+          type: integer
+        likes_count:
+          type: integer
+        is_liked_by_user:
+          type: boolean
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        views_count:
+          type: integer
+        is_viewed:
+          type: boolean
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        type:
+          type: string
+        code:
+          type: string
+          nullable: true
+        code_language:
+          type: string
+          nullable: true
+        parent_id:
+          type: integer
+          nullable: true
+        has_childrens:
+          type: boolean
+        user_id:
+          type: integer
+        post_id:
+          type: integer
+          nullable: true
+        blog_id:
+          type: integer
+          nullable: true
+        is_modified:
+          type: boolean
+        is_highlighted:
+          type: boolean
+        is_liked_by_user:
+          type: boolean
+        user_name:
+          type: string
+          nullable: true
+        mentions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              username:
+                type: string
+              profile_url:
+                type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    Profile:
+      type: object
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        social_links:
+          type: array
+          items:
+            type: string
+        cover_image_url:
+          type: string
+          nullable: true
+        ranking_points:
+          type: integer
+        badge:
+          type: string
+          nullable: true
+        posts_count:
+          type: integer
+        blogs_count:
+          type: integer
+        views_count:
+          type: integer
+        is_viewed:
+          type: boolean
+        followers_count:
+          type: integer
+        following_count:
+          type: integer
+        is_following:
+          type: boolean
+        joined_at:
+          type: string
+        last_seen_at:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        actor:
+          type: object
+          nullable: true
+          additionalProperties: true
+        entity:
+          type: object
+          nullable: true
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
+        read_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        actor:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            username:
+              type: string
+            name:
+              type: string
+        subject:
+          type: object
+          properties:
+            type:
+              type: string
+              nullable: true
+            id:
+              type: integer
+              nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+
+    Viewer:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        viewed_at:
+          type: string
+
+    SavedItem:
+      type: object
+      properties:
+        kind:
+          type: string
+        saved_at:
+          type: string
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/Post'
+            - $ref: '#/components/schemas/Blog'
+            - type: object
+              nullable: true
