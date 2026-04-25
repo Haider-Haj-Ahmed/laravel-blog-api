@@ -277,6 +277,11 @@ class BlogController extends Controller
         if (!$blog) {
             return $this->notFoundResponse('Blog not found');
         }
+
+        if ($request->user()->id !== $blog->user_id) {
+            return $this->forbiddenResponse('You are not authorized to view blog viewers');
+        }
+
         return $this->successResponse([
             'viewers' => $blog->views()->with('user')->get()->map(function ($view) {
                 return [

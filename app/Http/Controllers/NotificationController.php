@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use App\Traits\ApiResponseTrait;
 
 class NotificationController extends Controller
@@ -13,7 +15,7 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $notifications = $request->user()->notifications()->latest()->paginate(15);
-        
+
         return $this->paginatedResponse(
             NotificationResource::collection($notifications),
             'Notifications retrieved successfully'
@@ -30,7 +32,16 @@ class NotificationController extends Controller
     // تعليم إشعار واحد كمقروء
     public function markAsRead(Request $request, $id)
     {
-        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification = DatabaseNotification::query()
+            ->whereKey($id)
+            ->where('notifiable_type', User::class)
+            ->where('notifiable_id', $request->user()->id)
+            ->first();
+
+        if (! $notification) {
+            return $this->notFoundResponse('Notification not found');
+        }
+
         $notification->markAsRead();
 
         return $this->successResponse(null, 'Notification marked as read');
