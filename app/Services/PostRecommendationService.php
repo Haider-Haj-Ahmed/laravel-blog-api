@@ -409,7 +409,7 @@ class PostRecommendationService
         ?Collection $blockedIds = null,
     ): Collection {
         $blockedIds ??= collect();
-        $excludeAuthorIds = $blockedIds->push($user->id)->unique()->values();
+        $excludeAuthorIds = $blockedIds->merge([$user->id])->unique()->values();
 
         $windowDays = (int) config('recommendation.trending.window_days', 7);
         $weights = config('recommendation.trending.weights', []);
