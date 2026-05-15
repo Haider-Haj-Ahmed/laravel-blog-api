@@ -112,6 +112,9 @@ class ProfileController extends Controller
             'tags' => 'sometimes|array',
             'tags.*' => 'exists:tags,id',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // 5MB max
+            'settings' => 'prohibited',
+        ], [
+            'settings.prohibited' => 'The settings field can no longer be updated via this endpoint. Use PATCH /api/settings instead.',
         ]);
 
         $profile = $user->profile;
