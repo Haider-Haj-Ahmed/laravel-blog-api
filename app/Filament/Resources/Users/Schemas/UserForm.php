@@ -31,7 +31,19 @@ class UserForm
                 DateTimePicker::make('phone_verified_at'),
                 Toggle::make('is_admin')
                     ->label('Administrator')
-                    ->default(false),
+                    ->default(false)
+                    ->disabled(function (?object $record): bool {
+                        if (! $record) {
+                            return false;
+                        }
+
+                        if (auth()->id() === $record->getKey()) {
+                            return true;
+                        }
+
+                        return (bool) $record->is_admin
+                            && \App\Models\User::query()->where('is_admin', true)->count() <= 1;
+                    }),
             ]);
     }
 }
