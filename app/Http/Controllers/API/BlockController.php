@@ -59,8 +59,12 @@ class BlockController extends Controller
                 ->delete();
 
             if ($actorToTargetDeleted === 1) {
-                User::whereKey($actor->id)->where('following_count', '>', 0)->decrement('following_count');
-                User::whereKey($target->id)->where('followers_count', '>', 0)->decrement('followers_count');
+                User::whereKey($actor->id)->update([
+                    'following_count' => DB::raw('CASE WHEN following_count > 0 THEN following_count - 1 ELSE 0 END'),
+                ]);
+                User::whereKey($target->id)->update([
+                    'followers_count' => DB::raw('CASE WHEN followers_count > 0 THEN followers_count - 1 ELSE 0 END'),
+                ]);
             }
 
             $targetToActorDeleted = DB::table('follows')
@@ -69,8 +73,12 @@ class BlockController extends Controller
                 ->delete();
 
             if ($targetToActorDeleted === 1) {
-                User::whereKey($target->id)->where('following_count', '>', 0)->decrement('following_count');
-                User::whereKey($actor->id)->where('followers_count', '>', 0)->decrement('followers_count');
+                User::whereKey($target->id)->update([
+                    'following_count' => DB::raw('CASE WHEN following_count > 0 THEN following_count - 1 ELSE 0 END'),
+                ]);
+                User::whereKey($actor->id)->update([
+                    'followers_count' => DB::raw('CASE WHEN followers_count > 0 THEN followers_count - 1 ELSE 0 END'),
+                ]);
             }
         });
 
