@@ -32,11 +32,12 @@ class Report extends Model
     {
         static::saving(function (Report $report) {
             if ($report->isDirty('status') && $report->status !== self::STATUS_PENDING) {
+                if ($report->reviewed_by === null) {
+                    throw new \LogicException('reviewed_by must be set explicitly when changing a report to a non-pending status.');
+                }
+
                 if ($report->reviewed_at === null) {
                     $report->reviewed_at = now();
-                }
-                if ($report->reviewed_by === null && auth()->check()) {
-                    $report->reviewed_by = auth()->id();
                 }
             }
         });
