@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\MyPusherEvent;
 use App\Http\Controllers\API\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,7 +13,8 @@ Route::get('/testPusher', function () {
 });
 
 Route::get('/trigger-event', function () {
-    event(new \App\Events\MyPusherEvent('Hello from Laravel!'));
+    event(new MyPusherEvent('Hello from Laravel!'));
+
     return 'Event triggered!';
 });
 // Route::post('login', [AuthController::class, 'login']);

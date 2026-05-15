@@ -3,9 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Post;
-use App\Models\Comment;
-use Illuminate\Notifications\DatabaseNotification;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -22,10 +19,12 @@ class DatabaseSeeder extends Seeder
         // Post::factory(20)->create();
         // Comment::factory(50)->create();
         User::create([
-            'name'=>'admin',
-            'email'=>'admin@exampl.com',
-            'password'=>bcrypt('password'),
-            'username'=>'admin']);
+            'name' => 'admin',
+            'email' => 'admin@exampl.com',
+            'password' => bcrypt('password'),
+            'username' => 'admin',
+            'is_admin' => true,
+        ]);
         $this->call(RoadMapSeeder::class);
     }
 }

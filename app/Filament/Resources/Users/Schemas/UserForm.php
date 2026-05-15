@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 
 class UserForm
@@ -28,6 +29,9 @@ class UserForm
                     ->password()
                     ->required(),
                 DateTimePicker::make('phone_verified_at'),
+                Toggle::make('is_admin')
+                    ->label('Administrator')
+                    ->default(false),
             ]);
     }
 }

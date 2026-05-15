@@ -5,15 +5,16 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserSummaryResource;
 use App\Models\Otp;
-use App\Notifications\UserFollowedNotification;
-use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UsernameMap;
 use App\Notifications\OtpNotification;
+use App\Notifications\UserFollowedNotification;
+use App\Services\BlockedUserService;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -25,9 +26,10 @@ class UserController extends Controller
 {
     use ApiResponseTrait;
 
-    public function __construct(private readonly RecommendationCacheService $recommendationCacheService)
-    {
-    }
+    public function __construct(
+        private readonly RecommendationCacheService $recommendationCacheService,
+        private readonly BlockedUserService $blockedUserService,
+    ) {}
 
     /**
      * Display user by username.
@@ -36,9 +38,15 @@ class UserController extends Controller
     {
         $user = User::findByUsername($username);
 
-        if (!$user) {
+        if (! $user) {
             return $this->notFoundResponse('User not found');
         }
+
+        $viewer = auth('sanctum')->user();
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $user->id)) {
+            return $this->notFoundResponse('User not found');
+        }
+
         $user->load('profile');
 
         return $this->successResponse(new UserSummaryResource($user), 'User retrieved successfully');
@@ -55,65 +63,69 @@ class UserController extends Controller
     /**
      * Update username.
      */
-    public function updateUsername(Request $request){
-        $user=$request->user();
-        $atts=$request->validate([
-            'username'=> 'required|string|lowercase|max:25|min:1',
-            'password'=>'required|string',
+    public function updateUsername(Request $request)
+    {
+        $user = $request->user();
+        $atts = $request->validate([
+            'username' => 'required|string|lowercase|max:25|min:1',
+            'password' => 'required|string',
         ]);
-        if(!Hash::check($atts['password'], $user->password)){
+        if (! Hash::check($atts['password'], $user->password)) {
             return $this->validationErrorResponse([
                 'password' => ['The provided password is incorrect.'],
             ]);
         }
-        $username=$atts['username'];
-        $username=trim($username);
-        $username=str_replace(' ', '_', $username);
+        $username = $atts['username'];
+        $username = trim($username);
+        $username = str_replace(' ', '_', $username);
         $reserved = [
             'admin', 'administrator', 'api', 'app', 'root', 'system', 'guest', 'test',
             'users', 'profile', 'profiles', 'auth', 'login', 'register', 'logout',
             'posts', 'blogs', 'comments', 'likes', 'follows', 'followers',
             'dashboard', 'settings', 'help', 'support', 'about', 'contact',
             'search', 'discover', 'trending', 'notifications', 'messages', 'inbox',
-            'search', 'api_v1', 'v1', 'v2', 'static', 'assets', 'storage'
+            'search', 'api_v1', 'v1', 'v2', 'static', 'assets', 'storage',
         ];
-        
+
         if (in_array(strtolower($username), $reserved)) {
             return $this->validationErrorResponse([
                 'username' => ['This username is reserved and cannot be used.'],
             ]);
         }
-        
-        if(User::where('username', $username)->exists()){
+
+        if (User::where('username', $username)->exists()) {
             return $this->validationErrorResponse([
                 'username' => ['The username is already taken.'],
             ]);
         }
-        try{
+        try {
             DB::transaction(function () use ($user, $username) {
                 $oldUsername = $user->username;
                 $user->username = $username;
                 $user->save();
                 UsernameMap::create([
-                    'old'=>$oldUsername,
-                    'current'=>$username
+                    'old' => $oldUsername,
+                    'current' => $username,
                 ]);
             });
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to update username', 500);
         }
+
         return $this->successResponse(
             new UserSummaryResource($user),
             'Your username has been successfully updated. Our system will keep track of your previous username to redirect links to the new one.'
         );
     }
-    public function updateEmail(Request $request){
-        $user=$request->user();
-        $atts=$request->validate([
-            'email'=> 'required|string|email|max:255',
-            'password'=>'required|string',
+
+    public function updateEmail(Request $request)
+    {
+        $user = $request->user();
+        $atts = $request->validate([
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string',
         ]);
-        if(!Hash::check($atts['password'], $user->password)){
+        if (! Hash::check($atts['password'], $user->password)) {
             return $this->validationErrorResponse([
                 'password' => ['The provided password is incorrect.'],
             ]);
@@ -136,8 +148,8 @@ class UserController extends Controller
             ]);
         }
 
-        try{
-            DB::transaction(function () use ($user, $atts){
+        try {
+            DB::transaction(function () use ($user, $atts) {
                 $user->pending_email = $atts['email'];
                 $user->save();
 
@@ -162,13 +174,14 @@ class UserController extends Controller
                 // force re-auth after requesting email change
                 $user->tokens()->delete();
             });
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             return $this->errorResponse(
                 'Failed to update email. If you were logged out after this message, please contact the support team.',
                 500
             );
         }
-            return $this->successResponse(null,'Email change requested. We sent an OTP to your new email. Your current email stays active until verification succeeds.');
+
+        return $this->successResponse(null, 'Email change requested. We sent an OTP to your new email. Your current email stays active until verification succeeds.');
     }
 
     public function forgotPassword(Request $request)
@@ -208,7 +221,7 @@ class UserController extends Controller
 
                 // Invalidate all API sessions after password reset.
                 $user->tokens()->delete();
-                //this event does not do anything
+                // this event does not do anything
                 event(new PasswordReset($user));
             }
         );
@@ -308,7 +321,7 @@ class UserController extends Controller
 
         if ($cooldownUntil && now()->lt(Carbon::parse($cooldownUntil))) {
             return $this->validationErrorResponse([
-                'name' => ['You can change your name again after ' . Carbon::parse($cooldownUntil)->toDateTimeString() . '.'],
+                'name' => ['You can change your name again after '.Carbon::parse($cooldownUntil)->toDateTimeString().'.'],
             ], 'Name change is on cooldown');
         }
 
@@ -321,7 +334,6 @@ class UserController extends Controller
             'name' => $user->name,
         ], 'Name updated successfully.');
     }
-
 
     public function follow(Request $request, string $username)
     {
@@ -371,6 +383,7 @@ class UserController extends Controller
 
         Cache::forget("user:{$actor->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
+
         return $this->successResponse([
             'is_following' => true,
             'followers_count' => (int) $targetUser->followers_count,
@@ -411,6 +424,7 @@ class UserController extends Controller
 
         Cache::forget("user:{$actor->id}:following_ids");
         Cache::forget("user:{$targetUser->id}:follower_ids");
+
         return $this->successResponse([
             'is_following' => false,
             'followers_count' => (int) $targetUser->followers_count,

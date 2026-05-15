@@ -1,22 +1,27 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\CompilerController;
 use App\Http\Controllers\API\ActivityController;
-use App\Http\Controllers\API\PostController;
-use App\Http\Controllers\CommentController;
-use App\Http\Controllers\API\UserController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\API\OtpController;
-use App\Http\Controllers\API\RoadMapController;
-use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\BlockController;
 use App\Http\Controllers\API\BlogController;
-use App\Http\Controllers\API\SectionController;
-use App\Http\Controllers\API\TagController;
+use App\Http\Controllers\API\CodeAnalysisController;
+use App\Http\Controllers\API\CompilerController;
+use App\Http\Controllers\API\OtpController;
+use App\Http\Controllers\API\PostController;
+use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\ReportController;
+use App\Http\Controllers\API\RoadMapController;
 use App\Http\Controllers\API\SavedController;
 use App\Http\Controllers\API\SearchController;
+use App\Http\Controllers\API\SectionController;
+use App\Http\Controllers\API\SettingsController;
+use App\Http\Controllers\API\TagController;
+use App\Http\Controllers\API\UMLController;
+use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\ViewController;
+use App\Http\Controllers\CommentController;
+use App\Http\Controllers\NotificationController;
+use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -27,10 +32,19 @@ Route::post('/otp/resend', [OtpController::class, 'resend'])->middleware('thrott
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/updateusername',[UserController::class,'updateUsername'])->middleware('throttle:username-update');
-    Route::post('/updateemail',[UserController::class,'updateEmail'])->middleware('throttle:email-update');
+    Route::post('/updateusername', [UserController::class, 'updateUsername'])->middleware('throttle:username-update');
+    Route::post('/updateemail', [UserController::class, 'updateEmail'])->middleware('throttle:email-update');
     Route::post('/change-password', [UserController::class, 'changePassword'])->middleware('throttle:5,10');
     Route::post('/change-name', [UserController::class, 'changeName'])->middleware('throttle:5,10');
+
+    Route::get('/settings', [SettingsController::class, 'show']);
+    Route::patch('/settings', [SettingsController::class, 'update']);
+
+    Route::get('/blocks', [BlockController::class, 'index']);
+    Route::post('/users/{username}/block', [BlockController::class, 'store'])->middleware('throttle:block-actions');
+    Route::delete('/users/{username}/block', [BlockController::class, 'destroy'])->middleware('throttle:block-actions');
+
+    Route::post('/reports', [ReportController::class, 'store'])->middleware('throttle:20,1');
 
     // Posts
     Route::post('/posts', [PostController::class, 'store']);
@@ -44,7 +58,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
     Route::get('/posts/viewers/{id}', [PostController::class, 'viewrs']);
 
-
     // Likes (Instagram-style toggle)
     Route::post('/posts/{post}/toggle-like', [PostController::class, 'toggleLike']);
     Route::post('/blogs/{blog}/toggle-like', [BlogController::class, 'toggleLike']);
@@ -56,7 +69,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/comments/{comment}', [CommentController::class, 'update'])->middleware('throttle:comment-actions');
     Route::post('/comments/{comment}/like', [CommentController::class, 'like'])->middleware('throttle:engagement-actions');
     Route::post('/comments/{comment}/dislike', [CommentController::class, 'dislike'])->middleware('throttle:engagement-actions');
-    Route::get('/comments/{comment}/children',[CommentController::class,'getChildren']);
+    Route::get('/comments/{comment}/children', [CommentController::class, 'getChildren']);
     Route::post('/comments/{comment}/highlight', [CommentController::class, 'highlight'])->middleware('throttle:comment-actions');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->middleware('throttle:comment-actions');
 
@@ -91,12 +104,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Profile
     Route::get('/show-me', [ProfileController::class, 'showMe']);
     Route::put('/profile', [ProfileController::class, 'update']);
-    Route::get('/profiles/{profile}',[ProfileController::class,'showViaId']);
+    Route::get('/profiles/{profile}', [ProfileController::class, 'showViaId']);
     // some tags routes
-    Route::post('/updatepost/tags/{post}',[TagController::class,'updatePost']);
-    Route::post('/updateprofile/tags/{profile}',[TagController::class,'updateProfile']);
+    Route::post('/updatepost/tags/{post}', [TagController::class, 'updatePost']);
+    Route::post('/updateprofile/tags/{profile}', [TagController::class, 'updateProfile']);
     Route::get('/profiles/viewers/{id}', [ProfileController::class, 'viewrs']);
-    Route::post('/survy',[TagController::class,'survy']);
+    Route::post('/survy', [TagController::class, 'survy']);
 });
 
 // Public routes
@@ -112,18 +125,18 @@ Route::get('/blogs', [BlogController::class, 'index']);
 Route::get('/blogs/{blog}', [BlogController::class, 'show']);
 
 // Code analysis route for testing only
-Route::post('/analyze-code', [App\Http\Controllers\API\CodeAnalysisController::class, 'analyze']);
-//Compiler
-Route::post('/compile',[CompilerController::class,'run']);
-//UML Generator
-Route::post('/generate-uml',[App\Http\Controllers\API\UMLController::class,'generate']);
-//Road Map Routes
-Route::get('/roadmaps',[RoadMapController::class,'index']);
-Route::get('/roadmaps/{id}',[RoadMapController::class,'show']);
-//Tags Routes
-Route::get('/tags',[TagController::class,'index']);
-Route::get('/profiles',[ProfileController::class,'index']);
-//Search
-Route::post('/search',[SearchController::class,'search']);
-//Suggetions
-Route::post('/suggestions',[CommentController::class,'suggest'])->middleware('auth:sanctum');
+Route::post('/analyze-code', [CodeAnalysisController::class, 'analyze']);
+// Compiler
+Route::post('/compile', [CompilerController::class, 'run']);
+// UML Generator
+Route::post('/generate-uml', [UMLController::class, 'generate']);
+// Road Map Routes
+Route::get('/roadmaps', [RoadMapController::class, 'index']);
+Route::get('/roadmaps/{id}', [RoadMapController::class, 'show']);
+// Tags Routes
+Route::get('/tags', [TagController::class, 'index']);
+Route::get('/profiles', [ProfileController::class, 'index']);
+// Search
+Route::post('/search', [SearchController::class, 'search']);
+// Suggetions
+Route::post('/suggestions', [CommentController::class, 'suggest'])->middleware('auth:sanctum');
