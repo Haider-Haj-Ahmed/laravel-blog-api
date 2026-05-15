@@ -25,7 +25,7 @@ class SettingsController extends Controller
         }
 
         $profile = $user->profile;
-        $this->authorize('update', $profile);
+        $this->authorize('view', $profile);
 
         return $this->successResponse([
             'settings' => $profile->settings ?? [],
