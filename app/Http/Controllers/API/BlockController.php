@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class BlockController extends Controller
 {
@@ -43,8 +45,42 @@ class BlockController extends Controller
             ]);
         }
 
-        $actor->blockedUsers()->syncWithoutDetaching([$target->id]);
+        DB::transaction(function () use ($actor, $target): void {
+            DB::table('user_blocks')->insertOrIgnore([
+                'user_id' => $actor->id,
+                'blocked_user_id' => $target->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $actorToTargetDeleted = DB::table('follows')
+                ->where('follower_id', $actor->id)
+                ->where('followed_id', $target->id)
+                ->delete();
+
+            if ($actorToTargetDeleted === 1) {
+                User::whereKey($actor->id)->where('following_count', '>', 0)->decrement('following_count');
+                User::whereKey($target->id)->where('followers_count', '>', 0)->decrement('followers_count');
+            }
+
+            $targetToActorDeleted = DB::table('follows')
+                ->where('follower_id', $target->id)
+                ->where('followed_id', $actor->id)
+                ->delete();
+
+            if ($targetToActorDeleted === 1) {
+                User::whereKey($target->id)->where('following_count', '>', 0)->decrement('following_count');
+                User::whereKey($actor->id)->where('followers_count', '>', 0)->decrement('followers_count');
+            }
+        });
+
         $this->recommendationCacheService->bumpUserVersion($actor->id);
+        $this->recommendationCacheService->bumpUserVersion($target->id);
+
+        Cache::forget("user:{$actor->id}:following_ids");
+        Cache::forget("user:{$actor->id}:follower_ids");
+        Cache::forget("user:{$target->id}:following_ids");
+        Cache::forget("user:{$target->id}:follower_ids");
 
         return $this->successResponse(null, 'User blocked successfully');
     }

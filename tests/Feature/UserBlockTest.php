@@ -51,4 +51,47 @@ class UserBlockTest extends TestCase
         $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertNotContains($post->id, $ids);
     }
+
+    public function test_blocking_user_removes_follow_relationships_in_both_directions(): void
+    {
+        $alice = User::factory()->create(['username' => 'alice_follow_block']);
+        $bob = User::factory()->create(['username' => 'bob_follow_block']);
+        Profile::create(['user_id' => $alice->id, 'ranking_points' => 0]);
+        Profile::create(['user_id' => $bob->id, 'ranking_points' => 0]);
+
+        Sanctum::actingAs($alice);
+        $this->postJson('/api/users/bob_follow_block/follow')->assertOk();
+
+        Sanctum::actingAs($bob);
+        $this->postJson('/api/users/alice_follow_block/follow')->assertOk();
+
+        $this->assertDatabaseHas('follows', [
+            'follower_id' => $alice->id,
+            'followed_id' => $bob->id,
+        ]);
+        $this->assertDatabaseHas('follows', [
+            'follower_id' => $bob->id,
+            'followed_id' => $alice->id,
+        ]);
+
+        Sanctum::actingAs($alice);
+        $this->postJson('/api/users/bob_follow_block/block')->assertOk();
+
+        $this->assertDatabaseMissing('follows', [
+            'follower_id' => $alice->id,
+            'followed_id' => $bob->id,
+        ]);
+        $this->assertDatabaseMissing('follows', [
+            'follower_id' => $bob->id,
+            'followed_id' => $alice->id,
+        ]);
+
+        $alice->refresh();
+        $bob->refresh();
+
+        $this->assertSame(0, $alice->following_count);
+        $this->assertSame(0, $alice->followers_count);
+        $this->assertSame(0, $bob->following_count);
+        $this->assertSame(0, $bob->followers_count);
+    }
 }
