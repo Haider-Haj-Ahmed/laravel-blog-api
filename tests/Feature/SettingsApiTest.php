@@ -59,4 +59,20 @@ class SettingsApiTest extends TestCase
             'evil_key' => 'x',
         ])->assertStatus(422);
     }
+
+    public function test_patch_settings_does_not_append_unknown_key_errors_when_core_validation_fails(): void
+    {
+        $user = User::factory()->create();
+        Profile::create(['user_id' => $user->id, 'ranking_points' => 0]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->patchJson('/api/settings', [
+            'theme' => ['foo' => 'dark'],
+            'evil_key' => 'x',
+        ])->assertStatus(422);
+
+        $response->assertJsonMissingPath('errors.evil_key');
+        $response->assertJsonPath('errors.theme.0', 'The theme field must be a string.');
+    }
 }

@@ -45,14 +45,22 @@ class ReportController extends Controller
             ]);
         }
 
-        $report = Report::create([
+        $report = Report::firstOrCreate([
             'reporter_id' => $reporter->id,
             'reportable_type' => $reportable->getMorphClass(),
             'reportable_id' => $reportable->getKey(),
+        ], [
             'reason' => $validated['reason'],
             'details' => $validated['details'] ?? null,
             'status' => Report::STATUS_PENDING,
         ]);
+
+        if (! $report->wasRecentlyCreated) {
+            return $this->successResponse([
+                'id' => $report->id,
+                'status' => $report->status,
+            ], 'Report already submitted');
+        }
 
         return $this->createdResponse([
             'id' => $report->id,

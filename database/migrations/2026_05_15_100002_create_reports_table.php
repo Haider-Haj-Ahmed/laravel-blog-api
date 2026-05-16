@@ -14,13 +14,14 @@ return new class extends Migration
             $table->morphs('reportable');
             $table->string('reason', 64);
             $table->text('details')->nullable();
-            $table->string('status', 32)->default('pending');
+            $table->enum('status', ['pending', 'reviewed', 'dismissed', 'action_taken'])->default('pending');
             $table->timestamp('reviewed_at')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('admin_notes')->nullable();
             $table->timestamps();
 
             $table->index(['status', 'created_at']);
+            $table->unique(['reporter_id', 'reportable_type', 'reportable_id']);
         });
     }
 

@@ -44,7 +44,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/users/{username}/block', [BlockController::class, 'store'])->middleware('throttle:block-actions');
     Route::delete('/users/{username}/block', [BlockController::class, 'destroy'])->middleware('throttle:block-actions');
 
-    Route::post('/reports', [ReportController::class, 'store'])->middleware('throttle:20,1');
+    Route::post('/reports', [ReportController::class, 'store'])->middleware('throttle:report-actions');
 
     // Posts
     Route::post('/posts', [PostController::class, 'store']);

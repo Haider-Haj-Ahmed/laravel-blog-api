@@ -62,4 +62,36 @@ class ReportApiTest extends TestCase
             'reason' => 'spam',
         ])->assertStatus(422);
     }
+
+    public function test_duplicate_report_for_same_target_is_idempotent(): void
+    {
+        $reporter = User::factory()->create();
+        $author = User::factory()->create();
+        Profile::create(['user_id' => $reporter->id, 'ranking_points' => 0]);
+        Profile::create(['user_id' => $author->id, 'ranking_points' => 0]);
+
+        $post = Post::factory()->create([
+            'user_id' => $author->id,
+            'is_published' => true,
+        ]);
+
+        Sanctum::actingAs($reporter);
+
+        $first = $this->postJson('/api/reports', [
+            'kind' => 'post',
+            'id' => $post->id,
+            'reason' => 'spam',
+        ])->assertCreated();
+
+        $this->postJson('/api/reports', [
+            'kind' => 'post',
+            'id' => $post->id,
+            'reason' => 'still spam',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $first->json('data.id'))
+            ->assertJsonPath('data.status', Report::STATUS_PENDING);
+
+        $this->assertDatabaseCount('reports', 1);
+    }
 }

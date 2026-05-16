@@ -9,12 +9,30 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            $user->posts()
+                ->with('photos:id,post_id,path')
+                ->chunkById(100, function ($posts): void {
+                    foreach ($posts as $post) {
+                        foreach ($post->photos as $photo) {
+                            if (Storage::disk('public')->exists($photo->path)) {
+                                Storage::disk('public')->delete($photo->path);
+                            }
+                        }
+                    }
+                });
+        });
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {

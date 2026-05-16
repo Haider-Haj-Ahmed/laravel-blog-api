@@ -7,6 +7,17 @@ use Illuminate\Validation\Validator;
 
 class UpdateSettingsRequest extends FormRequest
 {
+    /**
+     * @var list<string>
+     */
+    private const ALLOWED_SETTINGS_KEYS = [
+        'theme',
+        'notify_likes',
+        'notify_comments',
+        'language',
+        'privacy_show_email',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -15,9 +26,12 @@ class UpdateSettingsRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function ($validator) {
-            $allowed = ['theme', 'notify_likes', 'notify_comments', 'language', 'privacy_show_email'];
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
             foreach (array_keys($this->input()) as $key) {
-                if (! in_array($key, $allowed, true)) {
+                if (! in_array($key, self::ALLOWED_SETTINGS_KEYS, true)) {
                     $validator->errors()->add($key, 'Unknown setting.');
                 }
             }
