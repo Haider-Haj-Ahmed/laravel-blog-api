@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Blog;
 use App\Models\Comment;
 use App\Models\Post;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
             'post' => Post::class,
             'blog' => Blog::class,
             'comment' => Comment::class,
+            'user' => User::class,
         ]);
 
         RateLimiter::for('recommended-feed', function (Request $request) {
@@ -41,6 +43,16 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('follow-actions', function (Request $request) {
             return Limit::perMinute(30)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('block-actions', function (Request $request) {
+            return Limit::perMinute(30)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('report-actions', function (Request $request) {
+            return Limit::perMinute(20)
                 ->by($request->user()?->id ?: $request->ip());
         });
 

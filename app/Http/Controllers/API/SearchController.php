@@ -7,6 +7,7 @@ use App\Http\Resources\UserSummaryResource;
 use App\Models\Blog;
 use App\Models\Post;
 use App\Models\User;
+use App\Services\BlockedUserService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,16 +16,19 @@ class SearchController extends Controller
 {
     use ApiResponseTrait;
 
-    public function search(Request $request){
-        $atts=$request->validate([
-              'query'=>'string|required',
-              'tab'=>'sometimes|string|in:posts,blogs,users',
-              'tags'=>'array',
-              'tags.*'=>'exists:tags,id',
-              'page'=>'sometimes|integer|min:1',
+    public function __construct(private readonly BlockedUserService $blockedUserService) {}
+
+    public function search(Request $request)
+    {
+        $atts = $request->validate([
+            'query' => 'string|required',
+            'tab' => 'sometimes|string|in:posts,blogs,users',
+            'tags' => 'array',
+            'tags.*' => 'exists:tags,id',
+            'page' => 'sometimes|integer|min:1',
         ]);
-        if(!isset($atts['tab'])){
-            $atts['tab']='posts';
+        if (! isset($atts['tab'])) {
+            $atts['tab'] = 'posts';
         }
         $usersQuery = User::where(function ($q) use ($atts) {
             $q->where('name', 'like', '%'.$atts['query'].'%')
@@ -41,7 +45,7 @@ class SearchController extends Controller
             ->where('title', 'like', '%'.$atts['query'].'%')
             ->latest();
 
-        if (!empty($atts['tags'])) {
+        if (! empty($atts['tags'])) {
             $tags = $atts['tags'];
 
             $postsQuery->whereHas('tags', function ($q) use ($tags) {
@@ -57,6 +61,16 @@ class SearchController extends Controller
             });
         }
 
+        $viewer = auth('sanctum')->user();
+        if ($viewer) {
+            $blockedIds = $this->blockedUserService->blockedUserIds($viewer);
+            if ($blockedIds !== []) {
+                $postsQuery->whereNotIn('user_id', $blockedIds);
+                $blogsQuery->whereNotIn('user_id', $blockedIds);
+                $usersQuery->whereNotIn('users.id', $blockedIds);
+            }
+        }
+
         $perPage = 2;
         $page = $atts['page'] ?? 1;
         // $offset = ($page - 1) * $perPage;
@@ -64,14 +78,17 @@ class SearchController extends Controller
         // $users = $usersQuery->with('profile')->skip($offset)->take($perPage)->get();
         // $posts = $postsQuery->with('tags')->skip($offset)->take($perPage)->get();
         // $blogs = $blogsQuery->with('tags')->skip($offset)->take($perPage)->get();
-        if($atts['tab']=='users'){
-            $users = $usersQuery->with('profile')->skip(0)->take($perPage*$page)->get();
+        if ($atts['tab'] == 'users') {
+            $users = $usersQuery->with('profile')->skip(0)->take($perPage * $page)->get();
+
             return $this->successResponse(UserSummaryResource::collection($users), 'Users retrieved successfully');
-        }elseif($atts['tab']=='posts'){
-            $posts = $postsQuery->with('tags')->skip(0)->take($perPage*$page)->get();
+        } elseif ($atts['tab'] == 'posts') {
+            $posts = $postsQuery->with('tags')->skip(0)->take($perPage * $page)->get();
+
             return $this->successResponse($posts, 'Posts retrieved successfully');
-        }elseif($atts['tab']=='blogs'){
-            $blogs = $blogsQuery->with('tags')->skip(0)->take($perPage*$page)->get();
+        } elseif ($atts['tab'] == 'blogs') {
+            $blogs = $blogsQuery->with('tags')->skip(0)->take($perPage * $page)->get();
+
             return $this->successResponse($blogs, 'Blogs retrieved successfully');
         }
 

@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
 use App\Events\BlogLiked;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreBlogRequest;
+use App\Http\Requests\UpdateBlogRequest;
+use App\Http\Resources\BlogResource;
 use App\Models\Blog;
 use App\Models\BlogLike;
 use App\Models\User;
-use App\Traits\ApiResponseTrait;
-use App\Http\Resources\BlogResource;
-use App\Http\Requests\StoreBlogRequest;
-use App\Http\Requests\UpdateBlogRequest;
 use App\Services\ActivityService;
+use App\Services\BlockedUserService;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -21,9 +22,10 @@ class BlogController extends Controller
 {
     use ApiResponseTrait;
 
-    public function __construct(private readonly ActivityService $activityService)
-    {
-    }
+    public function __construct(
+        private readonly ActivityService $activityService,
+        private readonly BlockedUserService $blockedUserService,
+    ) {}
 
     /**
      * Display a listing of published blogs.
@@ -37,6 +39,11 @@ class BlogController extends Controller
             ->latest();
 
         if ($viewerId) {
+            $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
+            if ($blockedIds !== []) {
+                $blogsQuery->whereNotIn('user_id', $blockedIds);
+            }
+
             $blogsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
@@ -57,47 +64,48 @@ class BlogController extends Controller
     {
         $this->authorize('create', Blog::class);
         $storedPaths = [];
-        try{
-        $blog=DB::transaction(function () use ($request, &$storedPaths) {
-            $blog = $request->user()->blogs()->create([
-                'user_id' => $request->user()->id,
-                'title' => $request->input('title'),
-                'subtitle' => $request->input('subtitle'),
-                'reading_time'=>$request->input('reading_time'),
-                'is_published' => $request->input('is_published', false),
-            ]);
-            if($request->hasFile('cover_image')){
-                $path = $request->file('cover_image')->store('cover_images', 'public');
-                $storedPaths[] = $path;
-                $blog->cover_image_path = $path;
-                $blog->save();
-            }
-            if($request->has('tags')){
-                $blog->tags()->sync($request->input('tags'));
-            }
-            foreach ($request->validated()['sections'] as $index => $sectionData) {
-                Log::error($sectionData);
-                $section = $blog->sections()->create([
-                    'title' => $sectionData['title'],
-                    'content' => $sectionData['content'],
-                    'order' => $sectionData['order'],
+        try {
+            $blog = DB::transaction(function () use ($request, &$storedPaths) {
+                $blog = $request->user()->blogs()->create([
+                    'user_id' => $request->user()->id,
+                    'title' => $request->input('title'),
+                    'subtitle' => $request->input('subtitle'),
+                    'reading_time' => $request->input('reading_time'),
+                    'is_published' => $request->input('is_published', false),
                 ]);
-                $image = $request->file("sections.$index.image");
-                if ($image) {
-                    $path = $image->store('section_images', 'public');
+                if ($request->hasFile('cover_image')) {
+                    $path = $request->file('cover_image')->store('cover_images', 'public');
                     $storedPaths[] = $path;
-                    $section->image_path = $path;
-                    $section->save();
+                    $blog->cover_image_path = $path;
+                    $blog->save();
                 }
-                // $blog->sections()->save($section);
-            }
-            return $blog;
-        });
-        }catch(\Exception $e){
+                if ($request->has('tags')) {
+                    $blog->tags()->sync($request->input('tags'));
+                }
+                foreach ($request->validated()['sections'] as $index => $sectionData) {
+                    Log::error($sectionData);
+                    $section = $blog->sections()->create([
+                        'title' => $sectionData['title'],
+                        'content' => $sectionData['content'],
+                        'order' => $sectionData['order'],
+                    ]);
+                    $image = $request->file("sections.$index.image");
+                    if ($image) {
+                        $path = $image->store('section_images', 'public');
+                        $storedPaths[] = $path;
+                        $section->image_path = $path;
+                        $section->save();
+                    }
+                    // $blog->sections()->save($section);
+                }
+
+                return $blog;
+            });
+        } catch (\Exception $e) {
             Log::error('Error creating blog: '.$e->getMessage());
 
             foreach ($storedPaths as $path) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+                Storage::disk('public')->delete($path);
             }
 
             return $this->errorResponse('Failed to create blog', 500);
@@ -110,7 +118,7 @@ class BlogController extends Controller
         if ($blog->is_published) {
             User::whereKey($request->user()->id)->increment('published_blogs_count');
         }
-        $blog->load(['tags','sections']);
+        $blog->load(['tags', 'sections']);
 
         return $this->createdResponse(
             new BlogResource($blog->load('user')),
@@ -125,7 +133,11 @@ class BlogController extends Controller
     {
         $viewer = auth('sanctum')->user();
 
-        if (!$blog->is_published && (! $viewer || $viewer->id !== $blog->user_id)) {
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $blog->user_id)) {
+            return $this->notFoundResponse('Blog not found');
+        }
+
+        if (! $blog->is_published && (! $viewer || $viewer->id !== $blog->user_id)) {
             return $this->forbiddenResponse('You are not authorized to view this blog');
         }
 
@@ -135,7 +147,7 @@ class BlogController extends Controller
             ]);
         }
 
-        $blog->load(['tags','sections']);
+        $blog->load(['tags', 'sections']);
 
         return $this->successResponse(new BlogResource($blog->load('user')), 'Blog retrieved successfully');
     }
@@ -193,7 +205,7 @@ class BlogController extends Controller
                 Storage::disk('public')->delete($newCoverImagePath);
             }
 
-            Log::error('Error updating blog: ' . $e->getMessage());
+            Log::error('Error updating blog: '.$e->getMessage());
 
             return $this->errorResponse('Failed to update blog', 500);
         }
@@ -272,9 +284,11 @@ class BlogController extends Controller
             'Draft blogs retrieved successfully'
         );
     }
-    public function viewrs(Request $request,$id){
+
+    public function viewrs(Request $request, $id)
+    {
         $blog = Blog::find($id);
-        if (!$blog) {
+        if (! $blog) {
             return $this->notFoundResponse('Blog not found');
         }
 
@@ -301,6 +315,7 @@ class BlogController extends Controller
 
         if ($isPublished) {
             User::whereKey($userId)->increment('published_blogs_count');
+
             return;
         }
 

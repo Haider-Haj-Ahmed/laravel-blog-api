@@ -2,21 +2,22 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
 use App\Events\PostLiked;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostContentRequest;
 use App\Http\Requests\UpdatePostPhotosRequest;
-use Illuminate\Http\Request;
-use App\Models\Post;
+use App\Http\Resources\PostResource;
 use App\Models\Like;
+use App\Models\Post;
 use App\Models\PostPhoto;
 use App\Models\User;
 use App\Services\ActivityService;
+use App\Services\BlockedUserService;
 use App\Services\PostRecommendationService;
 use App\Services\RecommendationCacheService;
 use App\Traits\ApiResponseTrait;
-use App\Http\Resources\PostResource;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
@@ -25,11 +26,11 @@ class PostController extends Controller
 
     public function __construct(
         private readonly ActivityService $activityService,
+        private readonly BlockedUserService $blockedUserService,
         private readonly PostRecommendationService $postRecommendationService,
         private readonly RecommendationCacheService $recommendationCacheService
-    )
-    {
-    }
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -42,6 +43,11 @@ class PostController extends Controller
             ->latest();
 
         if ($viewerId) {
+            $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
+            if ($blockedIds !== []) {
+                $postsQuery->whereNotIn('user_id', $blockedIds);
+            }
+
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
@@ -76,8 +82,6 @@ class PostController extends Controller
             'Recommended posts retrieved successfully'
         );
     }
-
-
 
     /**
      * Store a newly created resource in storage.
@@ -121,7 +125,7 @@ class PostController extends Controller
 
         $post = $postQuery->find($id);
 
-        if (!$post) {
+        if (! $post) {
             return $this->notFoundResponse('Post not found');
         }
 
@@ -130,13 +134,15 @@ class PostController extends Controller
             return $this->forbiddenResponse('You are not authorized to view this post');
         }
 
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $post->user_id)) {
+            return $this->notFoundResponse('Post not found');
+        }
+
         return $this->successResponse(
             new PostResource($post),
             'Post retrieved successfully'
         );
     }
-
-
 
     /**
      * Update the specified resource in storage.
@@ -204,7 +210,7 @@ class PostController extends Controller
 
         $this->deleteStoredPhoto($photoOrResponse->path);
         $replacementFile = $request->file('photo');
-        $replacementName = time() . '_' . $postOrResponse->user_id . '_' . $photoOrResponse->sort_order . '.' . $replacementFile->getClientOriginalExtension();
+        $replacementName = time().'_'.$postOrResponse->user_id.'_'.$photoOrResponse->sort_order.'.'.$replacementFile->getClientOriginalExtension();
         $replacementPath = $replacementFile->storeAs('post_photos', $replacementName, 'public');
         $photoOrResponse->update(['path' => $replacementPath]);
         $this->markAsModified($postOrResponse);
@@ -239,7 +245,7 @@ class PostController extends Controller
     {
         $post = Post::find($id);
 
-        if (!$post) {
+        if (! $post) {
             return $this->notFoundResponse('Post not found');
         }
 
@@ -247,9 +253,6 @@ class PostController extends Controller
             return $this->forbiddenResponse('You are not authorized to delete this post');
         }
 
-        if ($post->is_published) {
-            User::whereKey($post->user_id)->where('published_posts_count', '>', 0)->decrement('published_posts_count');
-        }
         $post->delete();
 
         return $this->successResponse(null, 'Post deleted successfully');
@@ -262,7 +265,7 @@ class PostController extends Controller
     {
         $post = Post::find($postId);
 
-        if (!$post) {
+        if (! $post) {
             return $this->notFoundResponse('Post not found');
         }
 
@@ -367,6 +370,7 @@ class PostController extends Controller
 
         if ($isPublished) {
             User::whereKey($userId)->increment('published_posts_count');
+
             return;
         }
 
@@ -386,7 +390,7 @@ class PostController extends Controller
     private function createPhotoForPost(Post $post, $photoFile): void
     {
         $nextSortOrder = (int) ($post->photos()->max('sort_order') ?? -1) + 1;
-        $photoName = time() . '_' . $post->user_id . '_' . $nextSortOrder . '.' . $photoFile->getClientOriginalExtension();
+        $photoName = time().'_'.$post->user_id.'_'.$nextSortOrder.'.'.$photoFile->getClientOriginalExtension();
         $storedPath = $photoFile->storeAs('post_photos', $photoName, 'public');
 
         $post->photos()->create([
@@ -422,7 +426,7 @@ class PostController extends Controller
         $post->photos()->delete();
 
         foreach ($uploadedPhotos as $index => $photoFile) {
-            $photoName = time() . '_' . $post->user_id . '_' . $index . '.' . $photoFile->getClientOriginalExtension();
+            $photoName = time().'_'.$post->user_id.'_'.$index.'.'.$photoFile->getClientOriginalExtension();
             $storedPath = $photoFile->storeAs('post_photos', $photoName, 'public');
 
             $post->photos()->create([
@@ -453,14 +457,17 @@ class PostController extends Controller
             $post->forceFill(['is_modified' => true])->save();
         }
     }
-     public function viewrs(Request $request,$id){
+
+    public function viewrs(Request $request, $id)
+    {
         $post = Post::find($id);
-        if (!$post) {
+        if (! $post) {
             return $this->notFoundResponse('Post not found');
         }
         if ($request->user()->id !== $post->user_id) {
             return $this->forbiddenResponse('You are not authorized to view post viewers');
         }
+
         return $this->successResponse([
             'viewers' => $post->views()->with('user')->get()->map(function ($view) {
                 return [

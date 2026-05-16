@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Storage;
 
 class Post extends Model
 {
     use HasFactory;
+
     protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published', 'is_modified'];
 
     protected $casts = [
@@ -23,13 +24,17 @@ class Post extends Model
     protected static function booted(): void
     {
         static::deleting(function (Post $post) {
+            if ($post->is_published) {
+                User::whereKey($post->user_id)->where('published_posts_count', '>', 0)->decrement('published_posts_count');
+            }
+
             foreach ($post->photos as $photo) {
                 if (Storage::disk('public')->exists($photo->path)) {
                     Storage::disk('public')->delete($photo->path);
                 }
             }
-            //also comments
-            //$post->comments()->delete();
+            // also comments
+            // $post->comments()->delete();
             $post->saves()->delete();
             $post->views()->delete();
         });
@@ -72,12 +77,15 @@ class Post extends Model
 
     public function isLikedBy($user)
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
+
         return $this->likedByUsers()->where('user_id', $user->id)->exists();
     }
-    public function tags(){
-        return $this->belongsToMany(Tag::class,'post_tag');
+
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class, 'post_tag');
     }
 }

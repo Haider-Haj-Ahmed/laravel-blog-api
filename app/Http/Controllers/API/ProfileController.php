@@ -3,17 +3,22 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\Profile;
-use App\Traits\ApiResponseTrait;
+use App\Http\Resources\BlogResource;
+use App\Http\Resources\PostResource;
 use App\Http\Resources\ProfileResource;
+use App\Models\Profile;
+use App\Models\User;
+use App\Services\BlockedUserService;
 use App\Services\RecommendationCacheService;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
     use ApiResponseTrait;
+
+    public function __construct(private readonly BlockedUserService $blockedUserService) {}
 
     /**
      * Display the specified user's profile.
@@ -22,8 +27,12 @@ class ProfileController extends Controller
     {
         $user = User::findByUsername($username);
 
+        if (! $user) {
+            return $this->notFoundResponse('User not found');
+        }
 
-        if (!$user) {
+        $viewer = auth('sanctum')->user();
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $user->id)) {
             return $this->notFoundResponse('User not found');
         }
 
@@ -51,7 +60,7 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->profile) {
+        if (! $user->profile) {
             Profile::create([
                 'user_id' => $user->id,
                 'ranking_points' => 0,
@@ -68,22 +77,28 @@ class ProfileController extends Controller
 
         return $this->successResponse(new ProfileResource($user), 'Profile retrieved successfully');
     }
-    public function showViaId($id){
+
+    public function showViaId($id)
+    {
         $profile = Profile::where('id', $id)->with('tags')->first();
-        if(!$profile) {
+        if (! $profile) {
             return $this->notFoundResponse('Profile not found');
         }
+
         return $this->successResponse($profile, 'Profile retrieved successfully');
     }
-    public function index(){
-        $profiles = Profile::orderBy('created_at','desc')->paginate(10);
+
+    public function index()
+    {
+        $profiles = Profile::orderBy('created_at', 'desc')->paginate(10);
+
         return $this->paginatedResponse($profiles, 'Profiles retrieved successfully');
     }
 
     /**
      * Update the authenticated user's profile.
      */
-    public function update(Request $request,RecommendationCacheService $recommendationCacheService)
+    public function update(Request $request, RecommendationCacheService $recommendationCacheService)
     {
         $user = $request->user();
 
@@ -94,10 +109,12 @@ class ProfileController extends Controller
             'location' => 'nullable|string|max:100',
             'social_links' => 'nullable|array',
             'social_links.*' => 'url',
-            'tags'=>'sometimes|array',
-            'tags.*'=>'exists:tags,id',
+            'tags' => 'sometimes|array',
+            'tags.*' => 'exists:tags,id',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // 5MB max
-            'settings' => 'nullable|array',
+            'settings' => 'prohibited',
+        ], [
+            'settings.prohibited' => 'The settings field can no longer be updated via this endpoint. Use PATCH /api/settings instead.',
         ]);
 
         $profile = $user->profile;
@@ -112,7 +129,7 @@ class ProfileController extends Controller
             }
 
             $avatarFile = $request->file('avatar');
-            $avatarName = time() . '_' . $user->id . '.' . $avatarFile->getClientOriginalExtension();
+            $avatarName = time().'_'.$user->id.'.'.$avatarFile->getClientOriginalExtension();
             $avatarFile->storeAs('avatars', $avatarName, 'public');
             $validated['avatar'] = $avatarName;
         } else {
@@ -127,16 +144,16 @@ class ProfileController extends Controller
             }
 
             $coverFile = $request->file('cover_image');
-            $coverName = time() . '_cover_' . $user->id . '.' . $coverFile->getClientOriginalExtension();
+            $coverName = time().'_cover_'.$user->id.'.'.$coverFile->getClientOriginalExtension();
             $coverFile->storeAs('covers', $coverName, 'public');
             $validated['cover_image'] = $coverName;
         } else {
             unset($validated['cover_image']); // Don't update cover if not provided
         }
-        //need testing
-        if(isset($validated['tags'])) {
+        // need testing
+        if (isset($validated['tags'])) {
             $profile->tags()->sync($validated['tags']);
-             unset($validated['tags']);
+            unset($validated['tags']);
             $recommendationCacheService->bumpUserVersion($request->user()->id);
 
         }
@@ -157,7 +174,12 @@ class ProfileController extends Controller
     {
         $user = User::findByUsername($username);
 
-        if (!$user) {
+        if (! $user) {
+            return $this->notFoundResponse('User not found');
+        }
+
+        $viewer = auth('sanctum')->user();
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $user->id)) {
             return $this->notFoundResponse('User not found');
         }
 
@@ -178,7 +200,7 @@ class ProfileController extends Controller
         $posts = $postsQuery->paginate(15);
 
         return $this->paginatedResponse(
-            \App\Http\Resources\PostResource::collection($posts),
+            PostResource::collection($posts),
             'User posts retrieved successfully'
         );
     }
@@ -190,7 +212,12 @@ class ProfileController extends Controller
     {
         $user = User::findByUsername($username);
 
-        if (!$user) {
+        if (! $user) {
+            return $this->notFoundResponse('User not found');
+        }
+
+        $viewer = auth('sanctum')->user();
+        if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $user->id)) {
             return $this->notFoundResponse('User not found');
         }
 
@@ -210,18 +237,21 @@ class ProfileController extends Controller
         $blogs = $blogsQuery->paginate(15);
 
         return $this->paginatedResponse(
-            \App\Http\Resources\BlogResource::collection($blogs),
+            BlogResource::collection($blogs),
             'User blogs retrieved successfully'
         );
     }
-     public function viewrs(Request $request,$id){
+
+    public function viewrs(Request $request, $id)
+    {
         $profile = Profile::find($id);
-        if (!$profile) {
+        if (! $profile) {
             return $this->notFoundResponse('Profile not found');
         }
         if ($request->user()->id !== $profile->user_id) {
             return $this->forbiddenResponse('You are not authorized to view profile viewers');
         }
+
         return $this->successResponse([
             'viewers' => $profile->views()->with('user')->get()->map(function ($view) {
                 return [
