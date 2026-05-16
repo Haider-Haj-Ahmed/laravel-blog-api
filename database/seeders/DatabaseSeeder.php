@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
             $username = env('SEED_ADMIN_USERNAME', 'admin');
             $password = env('SEED_ADMIN_PASSWORD');
 
-            if (! is_string($password) || $password === '') {
+            if (empty($password)) {
                 $password = Str::password(16);
                 $this->command?->warn("Generated local admin password for {$email}: {$password}");
             }
