@@ -23,6 +23,16 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 - Saves are polymorphic bookmarks for `post` and `blog`.
 - Views are polymorphic records for `post`, `blog`, and `profile`.
 - Tags are reusable and can be attached to posts/blogs/profile.
+- Users can block other users; blocked content is hidden from feeds, search, and profile routes.
+- Users can report posts, blogs, comments, or other users; admins review reports in Filament.
+- `users.is_admin` gates access to the Filament moderation panel.
+
+## Admin panel (Filament)
+
+- URL: `/admin` (requires `is_admin` on the user account)
+- **Reports**: list and edit user-submitted reports (status, admin notes, reviewer)
+- **Posts**: list and delete posts for moderation (not exposed on the public API)
+- Local seed: `php artisan db:seed` creates an admin user in the `local` environment (`SEED_ADMIN_EMAIL`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`)
 
 ## API route inventory (from `routes/api.php`)
 
@@ -32,6 +42,8 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 |---|---|---|
 | POST | `/api/register` | Register user and trigger OTP flow |
 | POST | `/api/login` | Login (verified account required) |
+| POST | `/api/forgot-password` | Request password reset email |
+| POST | `/api/reset-password` | Reset password with token |
 | POST | `/api/otp/verify` | Verify OTP |
 | POST | `/api/otp/resend` | Resend OTP |
 | GET | `/api/posts` | Published posts list |
@@ -58,13 +70,25 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/api/logout` | Logout current user |
+| POST | `/api/forgot-password` | Request password reset (also public) |
+| POST | `/api/reset-password` | Complete password reset (also public) |
+| POST | `/api/change-password` | Change password while logged in |
+| POST | `/api/change-name` | Change display name |
+| POST | `/api/updateusername` | Change username |
+| POST | `/api/updateemail` | Change email (starts OTP flow) |
+| GET | `/api/settings` | Get profile settings object |
+| PATCH | `/api/settings` | Update profile settings |
+| GET | `/api/blocks` | List blocked users |
+| POST | `/api/users/{username}/block` | Block a user |
+| DELETE | `/api/users/{username}/block` | Unblock a user |
+| POST | `/api/reports` | Report post, blog, comment, or user |
 | POST | `/api/posts` | Create post |
 | PUT | `/api/posts/{post}` | Deprecated legacy update endpoint (returns 404) |
 | PUT | `/api/posts/{post}/content` | Update own post content |
 | POST | `/api/posts/{post}/photos` | Add one post photo |
 | PUT | `/api/posts/{post}/photos/{photo}` | Replace one post photo |
 | DELETE | `/api/posts/{post}/photos/{photo}` | Delete one post photo |
-| DELETE | `/api/posts/{post}` | Delete own post |
+| DELETE | `/api/posts/{post}` | Delete own post (owner only; admins use Filament) |
 | GET | `/api/posts/recommended` | Personalized feed |
 | GET | `/api/posts/drafts` | Current user draft posts |
 | GET | `/api/posts/viewers/{id}` | Post viewers |
@@ -79,6 +103,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | POST | `/api/comments/{comment}/dislike` | Toggle comment dislike |
 | GET | `/api/comments/{comment}/children` | Paginated child comments |
 | POST | `/api/comments/{comment}/highlight` | Highlight comment (content owner only) |
+| DELETE | `/api/comments/{comment}` | Delete own comment |
 | GET | `/api/notifications` | Notifications list |
 | GET | `/api/notifications/unread-count` | Unread notifications count |
 | PATCH | `/api/notifications/{notification}/read` | Mark one notification as read |
@@ -132,5 +157,5 @@ Optional integrations in `.env`: Pusher, Twilio, mail providers, and AI provider
 - `docs/API_RESPONSE_TRAIT.md`
 - `docs/API_CONTRACT.md`
 - `docs/api-contract.openapi.yaml`
-- `LIKES_IMPLEMENTATION_CHECKLIST.md`
-- `POSTMAN_LIKES_TESTING.md`
+- `docs/LIKES_IMPLEMENTATION_CHECKLIST.md`
+- `docs/POSTMAN_LIKES_TESTING.md`

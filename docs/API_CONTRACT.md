@@ -288,7 +288,7 @@ Auth legend:
   - Body: `photo`
   - `200`: `Post`
 - `DELETE /posts/{post}/photos/{photo}` (`auth`) -> updated `Post`
-- `DELETE /posts/{post}` (`auth`) -> success message
+- `DELETE /posts/{post}` (`auth`, **owner only**) -> success message (moderators delete via Filament admin panel, not this API)
 - `PUT /posts/{post}` (`auth`) -> intentionally deprecated, returns `404`
 - `GET /posts/recommended` (`auth`)
   - Query optional: `page`, `per_page (1..30)`
@@ -368,6 +368,8 @@ Auth legend:
 - `GET /users/{username}/blogs` (`public`) -> paginated `Blog[]`
 - `POST /users/{username}/follow` (`auth`) -> `data.is_following`, `data.followers_count`
 - `DELETE /users/{username}/follow` (`auth`) -> same shape with `is_following=false`
+- `POST /users/{username}/block` (`auth`, throttle `block-actions`: 30/min) -> success message, no `data`
+- `DELETE /users/{username}/block` (`auth`, same throttle) -> success message, no `data`
 - `GET /show-me` (`auth`) -> `Profile`
 - `PUT /profile` (`auth`, multipart/json)
   - Body any of: `avatar`, `bio`, `website`, `location`, `social_links[]`, `tags[]`, `cover_image`, `settings`
@@ -375,6 +377,39 @@ Auth legend:
 - `GET /profiles` (`public`) -> paginated raw profile records
 - `GET /profiles/{profile}` (`auth`) -> raw profile record with tags
 - `GET /profiles/viewers/{id}` (`auth`, owner only) -> `data.viewers[]`
+
+## Settings
+
+- `GET /settings` (`auth`) -> `data.settings` (object; keys below)
+- `PATCH /settings` (`auth`)
+  - Body any of: `theme` (`light|dark|system`), `notify_likes` (boolean), `notify_comments` (boolean), `language` (string, max 12), `privacy_show_email` (boolean)
+  - `200`: `data.settings` (merged with existing values)
+
+## Moderation & safety
+
+### Reports
+
+- `POST /reports` (`auth`, throttle `report-actions`: 20/min)
+  - Body: `kind` (`post|blog|comment|user`), `id` (integer), `reason` (string, max 64), optional `details` (string, max 5000)
+  - `201`: `data.id`, `data.status` (`pending`)
+  - `200`: duplicate report for same reporter + target (`data.id`, `data.status`, message `Report already submitted`)
+  - `422`: reporting own content or own user account; validation errors
+  - `404`: report target not found
+
+Report review and status changes are admin-only via the Filament panel (`/admin`).
+
+### Blocks
+
+- `GET /blocks` (`auth`) -> paginated `UserSummary[]` (default `per_page` 20)
+- `POST /users/{username}/block` (`auth`) -> success message, no `data`
+- `DELETE /users/{username}/block` (`auth`) -> success message, no `data`
+- `422`: cannot block yourself
+- `404`: username not found
+
+**Block side effects (client expectations):**
+
+- Blocking removes follow relationships in both directions and updates follower/following counts.
+- Blocked users (either direction) are hidden from feeds, search, profile routes, and single post/blog show endpoints. Those routes return `404` (not `403`) for blocked parties.
 
 ## Saved, views, tags, roadmaps
 
@@ -419,3 +454,6 @@ Auth legend:
 - Some endpoints return raw model arrays (for example `search` non-user tabs and `profiles/{id}`); treat these as server-defined objects, not resource-wrapped shapes.
 - `PUT /posts/{post}` is deprecated and intentionally returns `404`.
 - `POST /generate-uml` must be consumed as blob/image response.
+- Blocked users/content return `404`, not `403`, on affected read endpoints.
+- Reports are idempotent per reporter + target; resubmitting returns `200` with the existing report id.
+- Post deletion by moderators is only available in the Filament admin panel (`/admin` → Posts), not via `DELETE /posts/{post}`.
