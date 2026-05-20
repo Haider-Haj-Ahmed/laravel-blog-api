@@ -43,12 +43,9 @@ class CommentController extends Controller
             return $this->unauthorizedResponse('you cannot access this post');
         }
         $highlighted = Activity::where('action', 'comment_highlighted')->where('subject_id', $postId)->where('subject_type', 'post')->latest()->first();
-        $comments = Comment::where('post_id', $postId)
-            ->with(['user', 'mentions'])
-            ->latest()
-            ->paginate(15);
         $viewerId = auth('sanctum')->id();
         $commentsQuery = Comment::where('post_id', $postId)
+            ->whereNull('parent_id')
             ->with(['user', 'mentions']);
 
         if ($viewerId) {
@@ -76,6 +73,7 @@ class CommentController extends Controller
     {
         $viewerId = auth('sanctum')->id();
         $commentsQuery = Comment::where('blog_id', $blogId)
+            ->whereNull('parent_id')
             ->with(['user', 'mentions']);
 
         if ($viewerId) {
