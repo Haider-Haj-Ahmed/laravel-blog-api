@@ -20,6 +20,7 @@ return new class extends Migration {
             $table->foreignId('parent_id')->nullable()->constrained('comments')->onDelete('cascade');
             $table->text('body');
             $table->string('code_label')->nullable();
+            $table->string('code_language')->nullable();
             $table->text('code')->nullable();
             $table->unsignedInteger('likes')->default(0);
             $table->unsignedInteger('dislikes')->default(0);

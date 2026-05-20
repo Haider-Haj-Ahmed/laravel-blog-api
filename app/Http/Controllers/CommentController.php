@@ -55,6 +55,9 @@ class CommentController extends Controller
             $commentsQuery->withExists([
                 'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
+            $commentsQuery->withExists([
+                'dislikes as is_disliked_by_user' => fn ($query) => $query->where('user_id', $viewerId)
+            ]);
         }
 
         $comments = $commentsQuery->latest()->paginate(15);
@@ -79,6 +82,9 @@ class CommentController extends Controller
             $commentsQuery->withExists([
                 'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
+            $commentsQuery->withExists([
+                'dislikes as is_disliked_by_user' => fn ($query) => $query->where('user_id', $viewerId)
+            ]);
         }
 
         $comments = $commentsQuery->latest()->paginate(15);
@@ -102,6 +108,9 @@ class CommentController extends Controller
             $commentQuery->withExists([
                 'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
+                            $commentQuery->withExists([
+                    'dislikes as is_disliked_by_user' => fn ($query) => $query->where('user_id', $viewerId)
+                ]);
         }
 
         $comment = $commentQuery->find($id);
@@ -117,14 +126,17 @@ class CommentController extends Controller
     {
         $atts = $request->validate([
             'body' => 'required|string',
-            'post_id' => 'nullable|exists:posts,id|required_without:blog_id|prohibited_with:blog_id',
-            'blog_id' => 'nullable|exists:blogs,id|required_without:post_id|prohibited_with:post_id',
+            'post_id' => 'nullable|exists:posts,id|required_without:blog_id',
+            'blog_id' => 'nullable|exists:blogs,id|required_without:post_id',
             'code' => 'nullable|string',
             'code_language' => 'nullable|string|max:50',
             'parent_id' => 'nullable|exists:comments,id',
         ]);
         //find for post and blog
         if (isset($atts['post_id'])) {
+            if(isset($atts['blog_id'])){
+                return $this->errorResponse('A comment cannot belong to both a post and a blog', 422);
+            }
             $post = Post::find($atts['post_id']);
             if (!$post) {
                 return $this->notFoundResponse('this post is not found');
@@ -133,6 +145,9 @@ class CommentController extends Controller
                 return $this->unauthorizedResponse('you cannot comment on this post');
             }
         } elseif (isset($atts['blog_id'])) {
+            if(isset($atts['post_id'])){
+                return $this->errorResponse('A comment cannot belong to both a post and a blog', 422);
+            }
             $blog = Blog::find($atts['blog_id']);
             if (!$blog) {
                 return $this->notFoundResponse('this blog is not found');
@@ -153,7 +168,7 @@ class CommentController extends Controller
         if(!$comment){
             return $this->errorResponse('Failed to create comment', 500);
         }
-        $this->refreshSubjectCommentCounter($comment->post_id, $comment->blog_id);
+        $this->incrementSubjectCommentCounter($comment->post_id, $comment->blog_id);
         $this->handleMentions($comment);
         if (isset($atts['code'])) {
             AnalyzeCommentCode::dispatch($comment);
@@ -187,12 +202,12 @@ class CommentController extends Controller
         );
     }
 
-    public function storeForBlog(Request $request, Blog $blog)
-    {
-        $request->merge(['blog_id' => $blog->id]);
+    // public function storeForBlog(Request $request, Blog $blog)
+    // {
+    //     $request->merge(['blog_id' => $blog->id]);
 
-        return $this->store($request);
-    }
+    //     return $this->store($request);
+    // }
 
     public function update(Request $request, $id)
     {
@@ -395,11 +410,14 @@ class CommentController extends Controller
         $allchildren = [];
         $viewerId = auth('sanctum')->id();
         for ($i = $page; $i > 0; $i--) {
-            $childrenQuery = $comment->children()->latest();
+            $childrenQuery = $comment->children()->with(['user', 'mentions'])->latest();
 
             if ($viewerId) {
                 $childrenQuery->withExists([
-                    'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId),
+                    'likes as is_liked_by_user' => fn ($query) => $query->where('user_id', $viewerId)
+                ]);
+                $childrenQuery->withExists([
+                    'dislikes as is_disliked_by_user' => fn ($query) => $query->where('user_id', $viewerId)
                 ]);
             }
 
@@ -552,6 +570,20 @@ class CommentController extends Controller
                 ->whereKey($blogId)
                 ->where('comments_count', '>', 0)
                 ->decrement('comments_count');
+        }
+    }
+        private function incrementSubjectCommentCounter(?int $postId, ?int $blogId): void
+    {
+        if ($postId) {
+            Post::query()
+                ->whereKey($postId)
+                ->increment('comments_count');
+        }
+
+        if ($blogId) {
+            Blog::query()
+                ->whereKey($blogId)
+                ->increment('comments_count');
         }
     }
 
