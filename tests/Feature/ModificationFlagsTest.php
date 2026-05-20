@@ -83,6 +83,44 @@ class ModificationFlagsTest extends TestCase
         $this->assertTrue($blog->is_modified);
     }
 
+    public function test_blog_update_syncs_tags_and_tag_only_changes_do_not_set_is_modified(): void
+    {
+        $user = User::factory()->create();
+        $oldTag = Tag::create(['name' => 'laravel']);
+        $newTag = Tag::create(['name' => 'php']);
+
+        $blog = Blog::create([
+            'user_id' => $user->id,
+            'title' => 'Blog title',
+            'subtitle' => 'Blog subtitle',
+            'reading_time' => '4 min',
+            'is_published' => false,
+            'is_modified' => false,
+        ]);
+        $blog->tags()->attach($oldTag->id);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson("/api/blogs/{$blog->id}", [
+            'tags' => [$newTag->id],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.is_modified', false);
+
+        $blog->refresh();
+        $this->assertFalse($blog->is_modified);
+        $this->assertDatabaseMissing('blog_tag', [
+            'blog_id' => $blog->id,
+            'tag_id' => $oldTag->id,
+        ]);
+        $this->assertDatabaseHas('blog_tag', [
+            'blog_id' => $blog->id,
+            'tag_id' => $newTag->id,
+        ]);
+    }
+
     public function test_comment_update_sets_is_modified_and_notifies_subject_owner_when_highlighted(): void
     {
         Notification::fake();

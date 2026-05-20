@@ -107,7 +107,7 @@ class RecommendationInvalidationTest extends TestCase
 
         Sanctum::actingAs($viewer);
 
-        $this->postJson('/api/updateprofile/tags/' . $profile->id, ['tags' => [$tag->id]])
+        $this->putJson('/api/profile', ['tags' => [$tag->id]])
             ->assertOk();
     }
 

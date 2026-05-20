@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\DB;
 
 class PostRecommendationService
 {
-    public function __construct(private readonly RecommendationCacheService $cacheKeys)
-    {
-    }
+    public function __construct(
+        private readonly RecommendationCacheService $cacheKeys,
+        private readonly BlockedUserService $blockedUserService,
+    ) {}
 
     public function buildFeed(User $user, int $page = 1, ?int $perPage = null): LengthAwarePaginator
     {
@@ -83,6 +84,8 @@ class PostRecommendationService
         $followedIds = $user->following()->pluck('users.id')->values();
         $followedIdSet = array_flip($followedIds->all());
 
+        $blockedIds = collect($this->blockedUserService->blockedUserIds($user))->unique()->values();
+
         ['tagScores' => $tagScores, 'topTagIds' => $topTagIds] = $this->getUserInterestData($user, $userVersion);
 
         $excludeViewed = (bool) config('recommendation.feed.hide_previously_viewed_posts', true);
@@ -98,7 +101,8 @@ class PostRecommendationService
             $bucketPoolLimit,
             $tagScores,
             $followedIdSet,
-            true
+            true,
+            $blockedIds
         );
 
         $bucketB = $this->buildBucketNonFollowedWithInterest(
@@ -108,7 +112,8 @@ class PostRecommendationService
             $seenPostIds,
             $bucketPoolLimit,
             $tagScores,
-            $followedIdSet
+            $followedIdSet,
+            $blockedIds
         );
 
         $bucketC = $this->buildTrendingBucket(
@@ -116,7 +121,8 @@ class PostRecommendationService
             $seenPostIds,
             $bucketPoolLimit,
             $tagScores,
-            $followedIdSet
+            $followedIdSet,
+            $blockedIds
         );
 
         $feedCollection = $this->blendBuckets(
@@ -172,7 +178,7 @@ class PostRecommendationService
 
         $lockSeconds = max(1, (int) config('recommendation.cache.lock_seconds', 5));
 
-        $lock = Cache::lock($cacheKey . ':lock', $lockSeconds);
+        $lock = Cache::lock($cacheKey.':lock', $lockSeconds);
 
         return $lock->block($lockSeconds, function () use ($cacheKey, $ttlSeconds, $resolver) {
             $again = Cache::get($cacheKey);
@@ -224,7 +230,7 @@ class PostRecommendationService
             $commentWeight
         );
 
-        $postMorphClass = (new Post())->getMorphClass();
+        $postMorphClass = (new Post)->getMorphClass();
 
         $this->accumulateTagScoresFromRows(
             $scores,
@@ -320,7 +326,7 @@ class PostRecommendationService
     {
         return View::query()
             ->where('user_id', $user->id)
-            ->where('viewable_type', (new Post())->getMorphClass())
+            ->where('viewable_type', (new Post)->getMorphClass())
             ->pluck('viewable_id')
             ->values();
     }
@@ -333,16 +339,20 @@ class PostRecommendationService
         int $limit,
         Collection $tagScores,
         array $followedIdSet,
-        bool $forceFollowBoost = false
+        bool $forceFollowBoost = false,
+        ?Collection $blockedIds = null,
     ): Collection {
         if ($followedIds->isEmpty()) {
             return collect();
         }
 
+        $blockedIds ??= collect();
+
         $query = Post::query()
             ->where('is_published', true)
             ->whereIn('user_id', $followedIds)
             ->where('user_id', '!=', $user->id)
+            ->when($blockedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('user_id', $blockedIds))
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
             ->withCount(['saves'])
@@ -365,9 +375,12 @@ class PostRecommendationService
         Collection $seenPostIds,
         int $limit,
         Collection $tagScores,
-        array $followedIdSet
+        array $followedIdSet,
+        ?Collection $blockedIds = null,
     ): Collection {
-        $blockedAuthorIds = $followedIds->push($user->id)->unique();
+        $blockedIds ??= collect();
+
+        $blockedAuthorIds = $followedIds->push($user->id)->merge($blockedIds)->unique();
 
         $query = Post::query()
             ->where('is_published', true)
@@ -392,8 +405,12 @@ class PostRecommendationService
         Collection $seenPostIds,
         int $limit,
         Collection $tagScores,
-        array $followedIdSet
+        array $followedIdSet,
+        ?Collection $blockedIds = null,
     ): Collection {
+        $blockedIds ??= collect();
+        $excludeAuthorIds = $blockedIds->merge([$user->id])->unique()->values();
+
         $windowDays = (int) config('recommendation.trending.window_days', 7);
         $weights = config('recommendation.trending.weights', []);
         $wl = (float) ($weights['likes'] ?? 3.0);
@@ -426,7 +443,7 @@ class PostRecommendationService
 
             $query = Post::query()
                 ->whereIn('id', $candidateIds)
-                ->where('user_id', '!=', $user->id)
+                ->whereNotIn('user_id', $excludeAuthorIds)
                 ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
                 ->with(['user', 'photos', 'tags'])
                 ->withCount(['saves'])
@@ -437,7 +454,7 @@ class PostRecommendationService
 
         $query = Post::query()
             ->where('is_published', true)
-            ->where('user_id', '!=', $user->id)
+            ->whereNotIn('user_id', $excludeAuthorIds)
             ->where('created_at', '>=', now()->subDays($windowDays))
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
@@ -457,6 +474,7 @@ class PostRecommendationService
     ): Collection {
         $ranked = $posts->map(function (Post $post) use ($tagScores, $followedIdSet, $forceFollowBoost) {
             $post->recommendation_score = $this->scorePost($post, $tagScores, $followedIdSet, $forceFollowBoost);
+
             return $post;
         });
 

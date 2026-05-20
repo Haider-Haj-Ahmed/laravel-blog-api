@@ -23,6 +23,10 @@ class UsersTable
                 TextColumn::make('email')
                     ->label('Email address')
                     ->searchable(),
+                TextColumn::make('is_admin')
+                    ->label('Admin')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No'),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable(),

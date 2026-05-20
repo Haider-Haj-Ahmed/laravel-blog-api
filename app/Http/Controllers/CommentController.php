@@ -33,7 +33,7 @@ class CommentController extends Controller
         private readonly RecommendationCacheService $recommendationCacheService
     ) {}
 
-    public function index(Request $request, $postId)
+    public function indexByPost(Request $request, $postId)
     {
         $post = Post::find($postId);
         if (!$post) {
@@ -222,7 +222,7 @@ class CommentController extends Controller
         if ($comment->user_id !== $request->user()->id) {
             return $this->forbiddenResponse('You are not authorized to update this comment');
         }
-        
+
 
         $atts = $request->validate([
             'body' => 'sometimes|string',
@@ -530,6 +530,7 @@ class CommentController extends Controller
             $postId = $comment->post_id;
             $blogId = $comment->blog_id;
 
+            $this->activityService->purgeActivitiesForDeletedComment($comment);
             $comment->delete();
             $this->decrementSubjectCommentCounter($postId, $blogId);
         });

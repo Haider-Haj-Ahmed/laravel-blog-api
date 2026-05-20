@@ -30,7 +30,7 @@ class ProfileShowMeTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $response = $this->getJson('/api/showme');
+        $response = $this->getJson('/api/show-me');
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')
@@ -41,7 +41,7 @@ class ProfileShowMeTest extends TestCase
 
     public function test_showme_requires_authentication(): void
     {
-        $this->getJson('/api/showme')
+        $this->getJson('/api/show-me')
             ->assertUnauthorized();
     }
 }

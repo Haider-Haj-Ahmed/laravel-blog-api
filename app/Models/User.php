@@ -3,16 +3,41 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\UsernameMap;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            $user->posts()
+                ->with('photos:id,post_id,path')
+                ->chunkById(100, function ($posts): void {
+                    foreach ($posts as $post) {
+                        foreach ($post->photos as $photo) {
+                            if (Storage::disk('public')->exists($photo->path)) {
+                                Storage::disk('public')->delete($photo->path);
+                            }
+                        }
+                    }
+                });
+        });
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return (bool) $this->is_admin;
+    }
 
     public function posts()
     {
@@ -33,7 +58,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Blog::class, 'blog_likes')->withTimestamps();
     }
-    public function comments(){
+
+    public function comments()
+    {
         return $this->hasMany(Comment::class);
     }
 
@@ -73,27 +100,41 @@ class User extends Authenticatable
     }
 
     /**
+     * Users this account has blocked (viewer-side block list).
+     */
+    public function blockedUsers()
+    {
+        return $this->belongsToMany(User::class, 'user_blocks', 'user_id', 'blocked_user_id')
+            ->withTimestamps();
+    }
+
+    public function reportsSubmitted()
+    {
+        return $this->hasMany(Report::class, 'reporter_id');
+    }
+
+    /**
      * Find user by username with fallback to username mappings.
-     * 
-     * @param string $username The username to search for
-     * @return \App\Models\User|null
+     *
+     * @param  string  $username  The username to search for
+     * @return User|null
      */
     public static function findByUsername(string $username)
     {
         // Try direct lookup first (fast path)
         $user = self::where('username', $username)->first();
-        
+
         if ($user) {
             return $user;
         }
-        
+
         // Fall back to old username mapping
         $mapping = UsernameMap::where('old', $username)->latest()->first();
-        
+
         if ($mapping) {
             return self::where('username', $mapping->current)->first();
         }
-        
+
         return null;
     }
 
@@ -102,7 +143,6 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-
     protected $fillable = [
         'name',
         'email',
@@ -111,6 +151,7 @@ class User extends Authenticatable
         'username',
         'phone',
         'phone_verified_at',
+        'is_admin',
     ];
 
     /**
@@ -136,5 +177,6 @@ class User extends Authenticatable
         'following_count' => 'integer',
         'published_posts_count' => 'integer',
         'published_blogs_count' => 'integer',
+        'is_admin' => 'boolean',
     ];
 }

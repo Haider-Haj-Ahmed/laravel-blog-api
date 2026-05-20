@@ -219,7 +219,7 @@ class BlogSectionUpdateFlowTest extends TestCase
         $this->assertTrue(Storage::disk('public')->exists($section->image_path));
     }
 
-    public function test_section_delete_reindexes_remaining_sections_from_zero(): void
+    public function test_section_delete_reindexes_remaining_sections_from_one(): void
     {
         $user = User::factory()->create();
         $blog = $this->createBlogForUser($user);
@@ -252,8 +252,8 @@ class BlogSectionUpdateFlowTest extends TestCase
             ->all();
 
         $this->assertSame([
-            $firstSection->id => 0,
-            $thirdSection->id => 1,
+            $firstSection->id => 1,
+            $thirdSection->id => 2,
         ], $remainingOrders);
 
         $this->assertDatabaseMissing('sections', [
@@ -304,6 +304,52 @@ class BlogSectionUpdateFlowTest extends TestCase
         ]);
         $this->assertDatabaseHas('sections', [
             'id' => $sectionTwo->id,
+            'order' => 3,
+        ]);
+    }
+
+    public function test_section_reorder_endpoint_rejects_payload_missing_blog_sections(): void
+    {
+        $user = User::factory()->create();
+        $blog = $this->createBlogForUser($user);
+        $sectionOne = $this->createSectionForBlog($blog, [
+            'title' => 'One',
+            'content' => 'One content',
+            'order' => 1,
+        ]);
+        $sectionTwo = $this->createSectionForBlog($blog, [
+            'title' => 'Two',
+            'content' => 'Two content',
+            'order' => 2,
+        ]);
+        $sectionThree = $this->createSectionForBlog($blog, [
+            'title' => 'Three',
+            'content' => 'Three content',
+            'order' => 3,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->putJson("/api/blogs/{$blog->id}/sections/reorder", [
+            'sections' => [
+                ['id' => $sectionThree->id, 'order' => 1],
+                ['id' => $sectionOne->id, 'order' => 2],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['sections']);
+
+        $this->assertDatabaseHas('sections', [
+            'id' => $sectionOne->id,
+            'order' => 1,
+        ]);
+        $this->assertDatabaseHas('sections', [
+            'id' => $sectionTwo->id,
+            'order' => 2,
+        ]);
+        $this->assertDatabaseHas('sections', [
+            'id' => $sectionThree->id,
             'order' => 3,
         ]);
     }

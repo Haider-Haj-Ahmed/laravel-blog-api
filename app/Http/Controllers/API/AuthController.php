@@ -17,6 +17,7 @@ use App\Http\Controllers\API\OtpController;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Laravel\Sanctum\PersonalAccessToken;
 use Throwable;
 
 class AuthController extends Controller
@@ -124,7 +125,7 @@ class AuthController extends Controller
 
         $currentToken = $user->currentAccessToken();
 
-        if ($currentToken) {
+        if ($currentToken instanceof PersonalAccessToken) {
             $currentToken->delete();
 
             return $this->successResponse(null, 'Logged out from current device successfully');

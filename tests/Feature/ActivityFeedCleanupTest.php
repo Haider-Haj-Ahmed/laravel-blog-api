@@ -17,7 +17,9 @@ class ActivityFeedCleanupTest extends TestCase
     public function test_unliking_a_post_removes_post_like_activity_from_history(): void
     {
         $user = User::factory()->create();
-        $post = Post::factory()->create();
+        $post = Post::factory()->create([
+            'user_id' => $user->id,
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -74,7 +76,9 @@ class ActivityFeedCleanupTest extends TestCase
     public function test_deleting_a_post_comment_removes_comment_activity_from_history(): void
     {
         $user = User::factory()->create();
-        $post = Post::factory()->create();
+        $post = Post::factory()->create([
+            'user_id' => $user->id,
+        ]);
 
         Sanctum::actingAs($user);
 
