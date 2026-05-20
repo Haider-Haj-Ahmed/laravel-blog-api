@@ -76,4 +76,12 @@ class Comment extends Model
 
         return $this->likes()->wherePivot('user_id', $user->id)->exists();
     }
+    public function isDislikedBy($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->dislikes()->wherePivot('user_id', $user->id)->exists();
+    }
 }

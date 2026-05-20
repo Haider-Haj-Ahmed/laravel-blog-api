@@ -21,13 +21,16 @@ class CommentResource extends JsonResource
         $isLikedByUser = isset($this->is_liked_by_user)
             ? (bool) $this->is_liked_by_user
             : ($viewer ? $this->isLikedBy($viewer) : false);
-
+        $isDislikedByUser = isset($this->is_disliked_by_user)
+            ? (bool) $this->is_disliked_by_user
+            : ($viewer ? $this->isDislikedBy($viewer) : false);
         return [
             'id' => $this->id,
             'body' => $this->body,
             'type' => $type,
             'code'=>$this->code,
             'code_language' => $this->code_language,
+            'code_label'=>$this->code_label??null,
             'parent_id'=>$this->parent_id,
             'has_childrens'=>$this->has_childrens(),
             'user_id' =>$this->user_id,
@@ -36,6 +39,7 @@ class CommentResource extends JsonResource
             'is_modified' => (bool) ($this->is_modified ?? false),
             'is_highlighted' => (bool) ($this->is_highlighted ?? false),
             'is_liked_by_user' => $isLikedByUser,
+            'is_disliked_by_user' => $isDislikedByUser,
             'user_name'=> $this->whenLoaded('user', fn () => $this->user->username), 
             'mentions' => $this->whenLoaded('mentions', function () {
                 return $this->mentions->map(function ($user) {
