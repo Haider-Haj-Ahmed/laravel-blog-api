@@ -308,15 +308,22 @@ class RoadMapSeeder extends Seeder
             $nodes = $roadmapData['nodes'];
             unset($roadmapData['nodes']);
 
-            $roadmap = RoadMap::create($roadmapData);
+            $roadmap = RoadMap::query()->updateOrCreate(
+                ['title' => $roadmapData['title']],
+                ['description' => $roadmapData['description']]
+            );
 
             foreach ($nodes as $node) {
-                Node::create([
-                    'road_map_id'   => $roadmap->id,
-                    'step_number'  => $node['step_number'],
-                    'title'        => $node['title'],
-                    'url'          => $node['url'],
-                ]);
+                Node::query()->updateOrCreate(
+                    [
+                        'road_map_id' => $roadmap->id,
+                        'step_number' => $node['step_number'],
+                    ],
+                    [
+                        'title' => $node['title'],
+                        'url' => $node['url'],
+                    ]
+                );
             }
         }
     }
