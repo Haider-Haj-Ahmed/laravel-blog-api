@@ -19,10 +19,10 @@ trait SyncsDenormalizedCounters
                 '(SELECT COUNT(*) FROM follows WHERE follows.follower_id = users.id)'
             ),
             'published_posts_count' => DB::raw(
-                '(SELECT COUNT(*) FROM posts WHERE posts.user_id = users.id AND posts.is_published = 1)'
+                '(SELECT COUNT(*) FROM posts WHERE posts.user_id = users.id AND posts.is_published = true)'
             ),
             'published_blogs_count' => DB::raw(
-                '(SELECT COUNT(*) FROM blogs WHERE blogs.user_id = users.id AND blogs.is_published = 1)'
+                '(SELECT COUNT(*) FROM blogs WHERE blogs.user_id = users.id AND blogs.is_published = true)'
             ),
         ]);
 
