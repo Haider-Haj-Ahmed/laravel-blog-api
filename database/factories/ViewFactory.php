@@ -37,7 +37,7 @@ class ViewFactory extends Factory
 
     public function configure(): static
     {
-        return $this->afterMaking(function (View $view): void {
+        return $this->afterCreating(function (View $view): void {
             if ($view->viewable_id) {
                 return;
             }
@@ -45,6 +45,7 @@ class ViewFactory extends Factory
             $post = Post::factory()->published()->create();
             $view->viewable_type = $post->getMorphClass();
             $view->viewable_id = $post->id;
+            $view->save();
         });
     }
 }
