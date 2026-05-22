@@ -16,15 +16,16 @@ class ActivityFactory extends Factory
 
     public function definition(): array
     {
-        $post = Post::factory()->published()->create();
-        $actor = User::factory()->verified()->create();
+        $owner = User::factory()->verified();
 
         return [
-            'owner_user_id' => $post->user_id,
-            'actor_user_id' => $actor->id,
+            'owner_user_id' => $owner,
+            'actor_user_id' => User::factory()->verified(),
             'action' => 'post_liked',
-            'subject_type' => $post->getMorphClass(),
-            'subject_id' => $post->id,
+            'subject_type' => (new Post())->getMorphClass(),
+            'subject_id' => Post::factory()->published()->state([
+                'user_id' => $owner,
+            ]),
             'meta' => null,
         ];
     }
