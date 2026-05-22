@@ -646,7 +646,8 @@ paths:
   /posts/{post}/comments:
     get:
       tags: [Comments]
-      summary: List post comments
+      summary: List top-level post comments
+      description: Returns paginated root comments only (`parent_id` is null). Replies are loaded via GET /comments/{comment}/children.
       parameters:
         - $ref: '#/components/parameters/PostId'
       responses:
@@ -844,7 +845,8 @@ paths:
   /blogs/{blog}/comments:
     get:
       tags: [Comments]
-      summary: List blog comments
+      summary: List top-level blog comments
+      description: Returns paginated root comments only (`parent_id` is null). Replies are loaded via GET /comments/{comment}/children.
       parameters:
         - $ref: '#/components/parameters/BlogId'
       responses:
@@ -1083,7 +1085,11 @@ paths:
   /comments/{comment}/children:
     get:
       tags: [Comments]
-      summary: Get child comments
+      summary: Get replies to a comment
+      description: |
+        Auth required. Returns direct replies only (3 per page, not configurable).
+        Responses are cumulative: page=1 is the first page; page=N merges pages 1..N (newest first per page).
+        Use total_pages in data to stop loading more pages.
       security:
         - BearerAuth: []
       parameters:

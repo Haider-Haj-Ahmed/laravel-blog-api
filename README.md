@@ -13,7 +13,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 
 - `POST /api/register`: creates user + profile and sends OTP
 - `POST /api/otp/verify`: verifies OTP and returns `access_token`
-- `POST /api/otp/resend`: resends OTP (`user_id`, optional `channel`)
+- `POST /api/otp/resend`: resends OTP (`email`, optional `channel`)
 - `POST /api/login`: requires account already verified
 - `POST /api/logout`: revokes current user tokens (auth required)
 
@@ -48,8 +48,8 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | POST | `/api/otp/resend` | Resend OTP |
 | GET | `/api/posts` | Published posts list |
 | GET | `/api/posts/{post}` | Post details |
-| GET | `/api/posts/{post}/comments` | Post comments |
-| GET | `/api/blogs/{blog}/comments` | Blog comments |
+| GET | `/api/posts/{post}/comments` | Top-level post comments only (`parent_id` null) |
+| GET | `/api/blogs/{blog}/comments` | Top-level blog comments only (`parent_id` null) |
 | GET | `/api/blogs` | Published blogs list |
 | GET | `/api/blogs/{blog}` | Blog details |
 | GET | `/api/users/{username}` | User summary |
@@ -101,7 +101,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 | POST | `/api/comments/{comment}` | Update own comment |
 | POST | `/api/comments/{comment}/like` | Like/unlike-style toggle for comment likes |
 | POST | `/api/comments/{comment}/dislike` | Toggle comment dislike |
-| GET | `/api/comments/{comment}/children` | Paginated child comments |
+| GET | `/api/comments/{comment}/children` | Replies (3 per page; cumulative by `page`; auth required) |
 | POST | `/api/comments/{comment}/highlight` | Highlight comment (content owner only) |
 | DELETE | `/api/comments/{comment}` | Delete own comment |
 | GET | `/api/notifications` | Notifications list |
@@ -137,6 +137,7 @@ Laravel REST API for TechTalk mobile clients and admin tooling.
 
 - `PostResource` computes `type` as: `text`, `text_photo`, `text_code`, `text_code_photo`.
 - `CommentResource` computes `type` as: `text` or `text_code`.
+- Post/blog comment lists return **top-level comments only**; use `GET /comments/{id}/children` for replies when `has_childrens` is true.
 - `is_liked_by_user` currently resolves to `false` when unauthenticated for post/blog resources.
 
 ## Local setup
