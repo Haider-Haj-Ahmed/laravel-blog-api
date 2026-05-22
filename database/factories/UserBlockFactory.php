@@ -15,12 +15,9 @@ class UserBlockFactory extends Factory
 
     public function definition(): array
     {
-        $blocker = User::factory()->verified()->create();
-        $blocked = User::factory()->verified()->create();
-
         return [
-            'user_id' => $blocker->id,
-            'blocked_user_id' => $blocked->id,
+            'user_id' => User::factory()->verified(),
+            'blocked_user_id' => User::factory()->verified(),
         ];
     }
 }
