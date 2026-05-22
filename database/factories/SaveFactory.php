@@ -37,7 +37,7 @@ class SaveFactory extends Factory
 
     public function configure(): static
     {
-        return $this->afterMaking(function (Save $save): void {
+        return $this->afterCreating(function (Save $save): void {
             if ($save->saveable_id) {
                 return;
             }
@@ -45,6 +45,7 @@ class SaveFactory extends Factory
             $post = Post::factory()->published()->create();
             $save->saveable_type = $post->getMorphClass();
             $save->saveable_id = $post->id;
+            $save->save();
         });
     }
 }
