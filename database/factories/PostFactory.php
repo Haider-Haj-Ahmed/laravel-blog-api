@@ -16,10 +16,32 @@ class PostFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
-            'title' => $this->faker->sentence(),
-            'body' => $this->faker->paragraphs(3, true),
-            'is_published' => $this->faker->boolean(80),
+            'user_id' => User::factory()->verified(),
+            'title' => fake()->sentence(),
+            'body' => fake()->paragraphs(3, true),
+            'code' => null,
+            'code_language' => null,
+            'is_published' => false,
+            'is_modified' => false,
         ];
     }
+
+    public function published(): static
+    {
+        return $this->state(fn () => ['is_published' => true]);
+    }
+
+    public function draft(): static
+    {
+        return $this->state(fn () => ['is_published' => false]);
+    }
+
+    public function withCode(string $language = 'php'): static
+    {
+        return $this->state(fn () => [
+            'code' => "<?php\n\necho 'Hello, world!';\n",
+            'code_language' => $language,
+        ]);
+    }
+
 }
