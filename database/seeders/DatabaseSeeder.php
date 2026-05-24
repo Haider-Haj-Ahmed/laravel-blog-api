@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -14,11 +13,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        // User::factory(10)->create([]);
-        // Post::factory(20)->create();
-        // Comment::factory(50)->create();
         if (app()->environment('local')) {
             $email = env('SEED_ADMIN_EMAIL', 'admin@example.com');
             $username = env('SEED_ADMIN_USERNAME', 'admin');
@@ -32,14 +26,18 @@ class DatabaseSeeder extends Seeder
             User::updateOrCreate(
                 ['email' => $email],
                 [
-                    'name' => 'admin',
+                    'name' => 'Admin',
                     'username' => $username,
                     'password' => bcrypt($password),
+                    'email_verified_at' => now(),
                     'is_admin' => true,
                 ]
             );
         }
 
-        $this->call(RoadMapSeeder::class);
+        $this->call([
+            RoadMapSeeder::class,
+            DemoContentSeeder::class,
+        ]);
     }
 }

@@ -331,8 +331,8 @@ Auth legend:
 
 ## Comments
 
-- `GET /posts/{post}/comments` (`public`) -> paginated `Comment[]` or empty success data
-- `GET /blogs/{blog}/comments` (`public`) -> paginated `Comment[]` or empty success data
+- `GET /posts/{post}/comments` (`public`) -> paginated top-level `Comment[]` (`parent_id` is `null` only; replies are not included)
+- `GET /blogs/{blog}/comments` (`public`) -> paginated top-level `Comment[]` (`parent_id` is `null` only; replies are not included)
 - `GET /comments/{comment}` (`auth`) -> `Comment`
 - `POST /comments` (`auth`)
   - Body: `body`, exactly one of `post_id` or `blog_id`, optional `code`, `code_language`, `parent_id`
@@ -343,7 +343,9 @@ Auth legend:
 - `POST /comments/{comment}/like` (`auth`) -> `data.likes`, `data.dislikes`, `data.is_liked_by_user`
 - `POST /comments/{comment}/dislike` (`auth`) -> same shape as like
 - `GET /comments/{comment}/children` (`auth`)
-  - Query optional: `page`
+  - Query optional: `page` (default `1`, minimum `1`)
+  - Fixed page size: `3` replies per page (not configurable)
+  - Cumulative responses: `page=1` returns the first page; `page=2` returns pages 1+2 merged; `page=N` returns pages `1..N` merged (newest first within each page). Use `data.total_pages` to know when to stop requesting a higher `page`.
   - `200`: `data.children[]`, `data.total_pages`
 - `POST /comments/{comment}/highlight` (`auth`, content owner only)
   - `200`: `Comment`
@@ -457,3 +459,4 @@ Report review and status changes are admin-only via the Filament panel (`/admin`
 - Blocked users/content return `404`, not `403`, on affected read endpoints.
 - Reports are idempotent per reporter + target; resubmitting returns `200` with the existing report id.
 - Post deletion by moderators is only available in the Filament admin panel (`/admin` → Posts), not via `DELETE /posts/{post}`.
+- Post/blog comment lists return **top-level comments only**. When `has_childrens` is `true`, load replies with `GET /comments/{comment}/children` (auth required).

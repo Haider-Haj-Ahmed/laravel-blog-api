@@ -11,7 +11,7 @@ class Post extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title', 'body', 'code', 'code_language', 'is_published', 'is_modified'];
+    protected $fillable = ['user_id', 'title', 'body', 'code', 'code_language', 'is_published', 'is_modified'];
 
     protected $casts = [
         'is_published' => 'boolean',
