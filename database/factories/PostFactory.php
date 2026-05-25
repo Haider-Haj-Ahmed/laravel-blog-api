@@ -21,7 +21,7 @@ class PostFactory extends Factory
             'body' => fake()->paragraphs(3, true),
             'code' => null,
             'code_language' => null,
-            'is_published' => false,
+            'is_published' => true,
             'is_modified' => false,
         ];
     }
