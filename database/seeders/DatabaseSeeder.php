@@ -37,8 +37,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             // RoadMapSeeder::class,
-            // DemoContentSeeder::class,
-            QuickSameUserPostsSeeder::class,
+             DemoContentSeeder::class,
+          //  QuickSameUserPostsSeeder::class,
         ]);
     }
 }
