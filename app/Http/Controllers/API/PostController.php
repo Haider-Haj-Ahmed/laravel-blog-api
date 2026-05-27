@@ -43,13 +43,16 @@ class PostController extends Controller
             ->latest();
 
         if ($viewerId) {
-            $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
-            if ($blockedIds !== []) {
-                $postsQuery->whereNotIn('user_id', $blockedIds);
-            }
+            // $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
+            // if ($blockedIds !== []) {
+            //     $postsQuery->whereNotIn('user_id', $blockedIds);
+            // }
 
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+            $postsQuery->withExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
         }
 
@@ -120,6 +123,9 @@ class PostController extends Controller
         if ($viewerId) {
             $postQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+            $postQuery->withExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
         }
 
@@ -309,6 +315,9 @@ class PostController extends Controller
 
         $postsQuery->withExists([
             'views as is_viewed' => fn ($query) => $query->where('user_id', $request->user()->id),
+        ]);
+        $postsQuery->withExists([
+            'saves as is_saved' => fn ($query) => $query->where('user_id', $request->user()->id),
         ]);
 
         $posts = $postsQuery->paginate(15);
