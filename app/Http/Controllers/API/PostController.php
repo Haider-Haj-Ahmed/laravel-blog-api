@@ -43,10 +43,10 @@ class PostController extends Controller
             ->latest();
 
         if ($viewerId) {
-            // $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
-            // if ($blockedIds !== []) {
-            //     $postsQuery->whereNotIn('user_id', $blockedIds);
-            // }
+            $blockedIds = $this->blockedUserService->blockedUserIds($request->user());
+            if ($blockedIds !== []) {
+                $postsQuery->whereNotIn('user_id', $blockedIds);
+            }
 
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),

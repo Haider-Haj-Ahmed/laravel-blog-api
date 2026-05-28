@@ -52,6 +52,9 @@ class Report extends Model
     {
         return [
             'reviewed_at' => 'datetime',
+            'reporter_id' => 'integer',
+            'reportable_id' => 'integer',
+            'reviewed_by' => 'integer',
         ];
     }
 

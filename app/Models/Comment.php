@@ -14,6 +14,10 @@ class Comment extends Model
     protected $casts = [
         'is_highlighted' => 'boolean',
         'is_modified' => 'boolean',
+        'user_id' => 'integer',
+        'post_id' => 'integer',
+        'blog_id' => 'integer',
+        'parent_id' => 'integer',
     ];
 
     protected static function booted(): void

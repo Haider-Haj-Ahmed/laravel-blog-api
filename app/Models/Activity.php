@@ -22,6 +22,9 @@ class Activity extends Model
 
     protected $casts = [
         'meta' => 'array',
+        'owner_user_id' => 'integer',
+        'actor_user_id' => 'integer',
+        'subject_id' => 'integer',
     ];
 
     public function owner(): BelongsTo

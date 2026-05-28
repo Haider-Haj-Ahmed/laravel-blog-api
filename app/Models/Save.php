@@ -19,6 +19,11 @@ class Save extends Model
         'saveable_id',
     ];
 
+    protected $casts = [
+        'user_id' => 'integer',
+        'saveable_id' => 'integer',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
