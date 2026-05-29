@@ -18,7 +18,6 @@ return new class extends Migration
     {
         Schema::table('comments', function (Blueprint $table) {
             $table->dropConstrainedForeignId('blog_id');
-            $table->foreignId('post_id')->nullable(false)->change();
         });
     }
 };

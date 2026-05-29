@@ -28,6 +28,7 @@ class Profile extends Model
         'settings' => 'array',
         'ranking_points' => 'integer',
         'views_count' => 'integer',
+        'user_id' => 'integer',
         'last_seen_at' => 'datetime',
     ];
 

@@ -151,8 +151,8 @@ class ProfileController extends Controller
             unset($validated['cover_image']); // Don't update cover if not provided
         }
         // need testing
-        if (isset($validated['tags'])) {
-            $profile->tags()->sync($validated['tags']);
+        if (array_key_exists('tags', $validated)) {
+            $profile->tags()->sync($validated['tags'] ?? []);
             unset($validated['tags']);
             $recommendationCacheService->bumpUserVersion($request->user()->id);
 

@@ -15,6 +15,11 @@ class View extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'user_id' => 'integer',
+        'viewable_id' => 'integer',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

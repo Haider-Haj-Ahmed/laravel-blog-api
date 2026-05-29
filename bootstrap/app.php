@@ -53,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unauthorized',
+                'message' => 'Unauthorized '.$e->getMessage(),
             ], Response::HTTP_UNAUTHORIZED);
         });
 
@@ -64,7 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Forbidden',
+                'message' => 'Forbidden '.$e->getMessage(),
             ], Response::HTTP_FORBIDDEN);
         });
 
@@ -75,7 +75,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Resource not found',
+                'message' => 'Resource not found '.$e->getMessage(),
             ], Response::HTTP_NOT_FOUND);
         });
 
@@ -86,7 +86,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Route not found',
+                'message' => 'Route not found '.$e->getMessage(),
             ], Response::HTTP_NOT_FOUND);
         });
 
@@ -97,7 +97,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Method not allowed',
+                'message' => 'Method not allowed '.$e->getMessage(),
             ], Response::HTTP_METHOD_NOT_ALLOWED);
         });
 
@@ -108,7 +108,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Too many requests',
+                'message' => 'Too many requests '.$e->getMessage(),
             ], Response::HTTP_TOO_MANY_REQUESTS);
         });
 
@@ -119,7 +119,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Server error',
+                'message' => 'Server error '.$e->getMessage(),
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         });
     })->create();

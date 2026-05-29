@@ -11,6 +11,10 @@ class BlogLike extends Model
     use HasFactory;
 
     protected $fillable = ['user_id', 'blog_id'];
+    protected $casts = [
+        'user_id' => 'integer',
+        'blog_id' => 'integer',
+    ];
 
     protected static function booted(): void
     {

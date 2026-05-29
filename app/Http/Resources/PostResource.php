@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Log;
 
 class PostResource extends JsonResource
 {
@@ -55,8 +57,10 @@ class PostResource extends JsonResource
             'comments_count' => (int) ($this->comments_count ?? 0),
             'likes_count' => (int) ($this->likes_count ?? 0),
             'views_count' => (int) ($this->views_count ?? 0),
+            // 'saves_count' => (int) ($this->saves_count ?? 0),
             'is_viewed' => $this->resolveIsViewed($request),
-            'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
+            'is_saved' => $this->resolveIsSaved($request),
+            'is_liked_by_user' => Auth::guard('sanctum')->user() ? $this->isLikedBy(Auth::guard('sanctum')->user()) : false,
             'tags'=>TagResource::collection($this->whenLoaded('tags')),
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
@@ -65,11 +69,10 @@ class PostResource extends JsonResource
 
     private function resolveIsViewed(Request $request): bool
     {
-        $viewer = $request->user();
-
+        $viewer = Auth::guard('sanctum')->user();
         if (! $viewer) {
             return false;
-        }
+            }
 
         if (array_key_exists('is_viewed', $this->resource->getAttributes())) {
             return (bool) $this->is_viewed;
@@ -80,5 +83,24 @@ class PostResource extends JsonResource
         }
 
         return $this->views()->where('user_id', $viewer->id)->exists();
+    }
+
+    private function resolveIsSaved(Request $request): bool
+    {
+        $viewer = $viewer = Auth::guard('sanctum')->user();
+
+        if (! $viewer) {
+            return false;
+        }
+
+        if (array_key_exists('is_saved', $this->resource->getAttributes())) {
+            return (bool) $this->is_saved;
+        }
+
+        if ($this->relationLoaded('saves')) {
+            return $this->saves->contains('user_id', $viewer->id);
+        }
+
+        return $this->saves()->where('user_id', $viewer->id)->exists();
     }
 }

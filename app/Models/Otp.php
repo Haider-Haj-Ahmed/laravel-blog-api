@@ -16,6 +16,8 @@ class Otp extends Model
     // Eloquent casts ensure expires_at is a Carbon instance so date helpers work
     protected $casts = [
         'expires_at' => 'datetime',
+        'user_id' => 'integer',
+        'attempts' => 'integer',
     ];
 
     public function user()

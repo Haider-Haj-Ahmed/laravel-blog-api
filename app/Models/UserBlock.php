@@ -17,6 +17,11 @@ class UserBlock extends Model
         'blocked_user_id',
     ];
 
+    protected $casts = [
+        'user_id' => 'integer',
+        'blocked_user_id' => 'integer',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

@@ -15,6 +15,11 @@ class PostPhoto extends Model
         'sort_order',
     ];
 
+    protected $casts = [
+        'post_id' => 'integer',
+        'sort_order' => 'integer',
+    ];
+
     public function post()
     {
         return $this->belongsTo(Post::class);

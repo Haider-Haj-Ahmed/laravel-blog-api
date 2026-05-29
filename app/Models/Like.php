@@ -11,6 +11,12 @@ class Like extends Model
     use HasFactory;
 
     protected $fillable = ['user_id', 'post_id'];
+
+    protected $casts = [
+        'user_id' => 'integer',
+        'post_id' => 'integer',
+    ];
+
     public $timestamps = true;
 
     protected static function booted(): void

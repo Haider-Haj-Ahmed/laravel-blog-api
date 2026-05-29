@@ -78,11 +78,7 @@ class DemoContentSeeder extends Seeder
 
     private function shouldSeed(): bool
     {
-        if (app()->environment('local')) {
-            return true;
-        }
-
-        return filter_var(env('SEED_DEMO', false), FILTER_VALIDATE_BOOLEAN);
+        return true;
     }
 
     /**

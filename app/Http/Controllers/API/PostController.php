@@ -51,6 +51,9 @@ class PostController extends Controller
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
+            $postsQuery->withExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
         }
 
         $posts = $postsQuery->paginate(15);
@@ -120,6 +123,9 @@ class PostController extends Controller
         if ($viewerId) {
             $postQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
+            $postQuery->withExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
         }
 
@@ -309,6 +315,9 @@ class PostController extends Controller
 
         $postsQuery->withExists([
             'views as is_viewed' => fn ($query) => $query->where('user_id', $request->user()->id),
+        ]);
+        $postsQuery->withExists([
+            'saves as is_saved' => fn ($query) => $query->where('user_id', $request->user()->id),
         ]);
 
         $posts = $postsQuery->paginate(15);
