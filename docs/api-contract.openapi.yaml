@@ -18,6 +18,9 @@ tags:
   - name: Auth
   - name: Users
   - name: Profile
+  - name: Settings
+  - name: Blocks
+  - name: Reports
   - name: Posts
   - name: Blogs
   - name: Sections
@@ -1419,6 +1422,121 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Get authenticated user settings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Settings payload
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          settings:
+                            $ref: '#/components/schemas/SettingsObject'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+
+    patch:
+      tags: [Settings]
+      summary: Update authenticated user settings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+      responses:
+        '200':
+          description: Updated settings payload
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          settings:
+                            $ref: '#/components/schemas/SettingsObject'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /blocks:
+    get:
+      tags: [Blocks]
+      summary: List blocked users (paginated)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PaginatedUserSummaries'
+        '401':
+          $ref: '#/components/responses/Error401'
+
+  /reports:
+    post:
+      tags: [Reports]
+      summary: Submit a report
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreateRequest'
+      responses:
+        '201':
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ReportReceipt'
+        '200':
+          description: Report already submitted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ReportReceipt'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/Error429'
+
   /profiles/{profile}:
     get:
       tags: [Profile]
@@ -1599,6 +1717,51 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/ValidationError'
+
+  /users/{username}/block:
+    post:
+      tags: [Blocks]
+      summary: Block a user by username
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/Error429'
+
+    delete:
+      tags: [Blocks]
+      summary: Unblock a user by username
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessNoData'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
     delete:
       tags: [Users]
       summary: Unfollow user
@@ -2032,6 +2195,20 @@ components:
                     items:
                       $ref: '#/components/schemas/Comment'
 
+    PaginatedUserSummaries:
+      description: Paginated user summaries
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserSummary'
+
     CommentLikeStatus:
       description: Comment engagement state
       content:
@@ -2426,9 +2603,54 @@ components:
         cover_image:
           type: string
           format: binary
-        settings:
-          type: object
-          additionalProperties: true
+
+    SettingsObject:
+      type: object
+      additionalProperties: false
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+        notify_likes:
+          type: boolean
+        notify_comments:
+          type: boolean
+        language:
+          type: string
+          maxLength: 12
+        privacy_show_email:
+          type: boolean
+
+    UpdateSettingsRequest:
+      allOf:
+        - $ref: '#/components/schemas/SettingsObject'
+
+    ReportCreateRequest:
+      type: object
+      required: [kind, id, reason]
+      properties:
+        kind:
+          type: string
+          enum: [post, blog, comment, user]
+        id:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          maxLength: 64
+        details:
+          type: string
+          nullable: true
+          maxLength: 5000
+
+    ReportReceipt:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, reviewed, dismissed, action_taken]
 
     UserModel:
       type: object

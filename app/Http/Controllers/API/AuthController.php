@@ -65,12 +65,12 @@ class AuthController extends Controller
         Otp::create([
             'user_id' => $user->id,
             'code' => $hashed,
-            'channel' => $request->get('channel', 'email'),
+            'channel' => $request->input('channel', 'email'),
             'expires_at' => $expiresAt,
         ]);
 
         // send notification
-        $user->notify(new OtpNotification((string) $plain, $request->get('channel', 'email')));
+        $user->notify(new OtpNotification((string) $plain, $request->input('channel', 'email')));
 
 
         // Otherwise, don't create an auth token until the user verifies via the OTP endpoint
