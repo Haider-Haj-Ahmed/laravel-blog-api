@@ -1718,6 +1718,39 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
+    delete:
+      tags: [Users]
+      summary: Unfollow user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Followed state
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_following:
+                            type: boolean
+                          followers_count:
+                            type: integer
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
   /users/{username}/block:
     post:
       tags: [Blocks]
@@ -1762,38 +1795,6 @@ paths:
           $ref: '#/components/responses/Error404'
         '429':
           $ref: '#/components/responses/Error429'
-    delete:
-      tags: [Users]
-      summary: Unfollow user
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Followed state
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessEnvelope'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          is_following:
-                            type: boolean
-                          followers_count:
-                            type: integer
-        '401':
-          $ref: '#/components/responses/Error401'
-        '404':
-          $ref: '#/components/responses/Error404'
 
   /updatepost/tags/{post}:
     post:
