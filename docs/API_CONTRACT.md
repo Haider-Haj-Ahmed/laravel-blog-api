@@ -374,7 +374,8 @@ Auth legend:
 - `DELETE /users/{username}/block` (`auth`, same throttle) -> success message, no `data`
 - `GET /show-me` (`auth`) -> `Profile`
 - `PUT /profile` (`auth`, multipart/json)
-  - Body any of: `avatar`, `bio`, `website`, `location`, `social_links[]`, `tags[]`, `cover_image`, `settings`
+  - Body any of: `avatar`, `bio`, `website`, `location`, `social_links[]`, `tags[]`, `cover_image`
+  - `settings` is not accepted here; use `PATCH /settings` instead.
   - `200`: `Profile`
 - `GET /profiles` (`public`) -> paginated raw profile records
 - `GET /profiles/{profile}` (`auth`) -> raw profile record with tags
