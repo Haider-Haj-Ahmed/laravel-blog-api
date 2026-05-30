@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BlogResource;
+use App\Http\Resources\PostResource;
 use App\Http\Resources\UserSummaryResource;
 use App\Models\Blog;
 use App\Models\Post;
@@ -83,13 +85,13 @@ class SearchController extends Controller
 
             return $this->successResponse(UserSummaryResource::collection($users), 'Users retrieved successfully');
         } elseif ($atts['tab'] == 'posts') {
-            $posts = $postsQuery->with('tags')->skip(0)->take($perPage * $page)->get();
+            $posts = $postsQuery->with(['tags', 'photos', 'user'])->skip(0)->take($perPage * $page)->get();
 
-            return $this->successResponse($posts, 'Posts retrieved successfully');
+            return $this->successResponse(PostResource::collection($posts), 'Posts retrieved successfully');
         } elseif ($atts['tab'] == 'blogs') {
-            $blogs = $blogsQuery->with('tags')->skip(0)->take($perPage * $page)->get();
+            $blogs = $blogsQuery->with(['tags', 'sections', 'user'])->skip(0)->take($perPage * $page)->get();
 
-            return $this->successResponse($blogs, 'Blogs retrieved successfully');
+            return $this->successResponse(BlogResource::collection($blogs), 'Blogs retrieved successfully');
         }
 
         return $this->errorResponse('Unsupported search tab', 400);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -34,10 +35,11 @@ class BlogResource extends JsonResource
             }),
             'comments_count' => (int) ($this->comments_count ?? 0),
             'likes_count' => (int) ($this->likes_count ?? 0),
-            'is_liked_by_user' => $request->user() ? $this->isLikedBy($request->user()) : false,
+            'is_liked_by_user' => Auth::guard('sanctum')->user() ? $this->isLikedBy(Auth::guard('sanctum')->user()) : false,
             'tags'=>TagResource::collection($this->whenLoaded('tags')),
             'views_count' => (int) ($this->views_count ?? 0),
             'is_viewed' => $this->resolveIsViewed($request),
+            'is_saved' => $this->resolveIsSaved($request),
             'sections'=>SectionResource::collection($this->whenLoaded('sections')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
@@ -46,7 +48,7 @@ class BlogResource extends JsonResource
 
     private function resolveIsViewed(Request $request): bool
     {
-        $viewer = $request->user();
+        $viewer = Auth::guard('sanctum')->user();
 
         if (! $viewer) {
             return false;
@@ -61,5 +63,24 @@ class BlogResource extends JsonResource
         }
 
         return $this->views()->where('user_id', $viewer->id)->exists();
+    }
+
+    private function resolveIsSaved(Request $request): bool
+    {
+        $viewer = Auth::guard('sanctum')->user();
+
+        if (! $viewer) {
+            return false;
+        }
+
+        if (array_key_exists('is_saved', $this->resource->getAttributes())) {
+            return (bool) $this->is_saved;
+        }
+
+        if ($this->relationLoaded('saves')) {
+            return $this->saves->contains('user_id', $viewer->id);
+        }
+
+        return $this->saves()->where('user_id', $viewer->id)->exists();
     }
 }

@@ -110,10 +110,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/updateprofile/tags/{profile}', [TagController::class, 'updateProfile']);
     Route::get('/profiles/viewers/{id}', [ProfileController::class, 'viewrs']);
     Route::post('/survy', [TagController::class, 'survy']);
-});
-
-// Public routes
-Route::get('/posts', [PostController::class, 'index']);
+    Route::get('/posts', [PostController::class, 'index']);
+    
+    // Public routes
 Route::get('/posts/{post}', [PostController::class, 'show']);
 Route::get('/posts/{post}/comments', [CommentController::class, 'indexByPost']);
 Route::get('/blogs/{blog}/comments', [CommentController::class, 'indexByBlog']);
@@ -140,3 +139,5 @@ Route::get('/profiles', [ProfileController::class, 'index']);
 Route::post('/search', [SearchController::class, 'search']);
 // Suggetions
 Route::post('/suggestions', [CommentController::class, 'suggest'])->middleware('auth:sanctum');
+
+});

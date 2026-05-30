@@ -47,6 +47,9 @@ class BlogController extends Controller
             $blogsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
             ]);
+            $blogsQuery->withExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewerId),
+            ]);
         }
 
         $blogs = $blogsQuery->paginate(15);
@@ -145,6 +148,10 @@ class BlogController extends Controller
             $blog->loadExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewer->id),
             ]);
+            $blog->loadExists([
+                'saves as is_saved' => fn ($query) => $query->where('user_id', $viewer->id),
+            ]);
+
         }
 
         $blog->load(['tags', 'sections']);
@@ -275,6 +282,9 @@ class BlogController extends Controller
 
         $blogsQuery->withExists([
             'views as is_viewed' => fn ($query) => $query->where('user_id', $request->user()->id),
+        ]);
+        $blogsQuery->withExists([
+            'saves as is_saved' => fn ($query) => $query->where('user_id', $request->user()->id),
         ]);
 
         $blogs = $blogsQuery->paginate(15);

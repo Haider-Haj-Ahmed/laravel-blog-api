@@ -19,6 +19,7 @@ class Post extends Model
         'comments_count' => 'integer',
         'likes_count' => 'integer',
         'views_count' => 'integer',
+        'user_id' => 'integer',
     ];
 
     protected static function booted(): void
