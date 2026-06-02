@@ -184,13 +184,18 @@ class ProfileController extends Controller
         }
 
         $viewerId = auth('sanctum')->id();
-
+        if($viewerId==$user->id){
+            $postsQuery = $user->posts()
+            ->with('user')
+            ->with('tags')
+            ->latest();
+        }else{
         $postsQuery = $user->posts()
             ->with('user')
             ->with('tags')
             ->where('is_published', true)
             ->latest();
-
+        }
         if ($viewerId) {
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
@@ -222,12 +227,18 @@ class ProfileController extends Controller
         }
 
         $viewerId = auth('sanctum')->id();
-
+        if($viewerId==$user->id){
+                    $blogsQuery = $user->blogs()
+            ->with('user')
+            ->with('tags')
+            ->latest();
+        }else{
         $blogsQuery = $user->blogs()
             ->with('user')
+            ->with('tags')
             ->where('is_published', true)
             ->latest();
-
+        }
         if ($viewerId) {
             $blogsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
