@@ -26,7 +26,7 @@ class SettingsController extends Controller
         }
 
         $profile = $user->profile;
-        $this->authorize('view', $profile);
+        $this->authorize('viewSettings', $profile);
 
         $settings = $settingsService->mergeWithDefaults($profile->settings ?? []);
         if (($profile->settings ?? []) !== $settings) {

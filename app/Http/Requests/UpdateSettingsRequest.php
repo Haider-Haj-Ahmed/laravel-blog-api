@@ -74,7 +74,7 @@ class UpdateSettingsRequest extends FormRequest
             }
 
             foreach (array_keys($this->input()) as $key) {
-                if (! in_array($key, self::ALLOWED_SETTINGS_KEYS, true)) {
+                if (!in_array($key, self::ALLOWED_SETTINGS_KEYS, true)) {
                     $validator->errors()->add($key, 'Unknown setting.');
                 }
             }
@@ -82,16 +82,16 @@ class UpdateSettingsRequest extends FormRequest
             $notifications = $this->input('notifications');
             if (is_array($notifications)) {
                 foreach (array_keys($notifications) as $key) {
-                    if (! in_array($key, self::ALLOWED_NOTIFICATION_KEYS, true)) {
-                        $validator->errors()->add('notifications.'.$key, 'Unknown notification setting.');
+                    if (!in_array($key, self::ALLOWED_NOTIFICATION_KEYS, true)) {
+                        $validator->errors()->add('notifications.' . $key, 'Unknown notification setting.');
                     }
                 }
 
                 $channels = $notifications['channels'] ?? null;
                 if (is_array($channels)) {
                     foreach (array_keys($channels) as $key) {
-                        if (! in_array($key, self::ALLOWED_NOTIFICATION_CHANNEL_KEYS, true)) {
-                            $validator->errors()->add('notifications.channels.'.$key, 'Unknown notification channel.');
+                        if (!in_array($key, self::ALLOWED_NOTIFICATION_CHANNEL_KEYS, true)) {
+                            $validator->errors()->add('notifications.channels.' . $key, 'Unknown notification channel.');
                         }
                     }
                 }
@@ -99,8 +99,8 @@ class UpdateSettingsRequest extends FormRequest
                 $events = $notifications['events'] ?? null;
                 if (is_array($events)) {
                     foreach (array_keys($events) as $key) {
-                        if (! in_array($key, self::ALLOWED_NOTIFICATION_EVENT_KEYS, true)) {
-                            $validator->errors()->add('notifications.events.'.$key, 'Unknown notification event.');
+                        if (!in_array($key, self::ALLOWED_NOTIFICATION_EVENT_KEYS, true)) {
+                            $validator->errors()->add('notifications.events.' . $key, 'Unknown notification event.');
                         }
                     }
                 }
@@ -109,8 +109,8 @@ class UpdateSettingsRequest extends FormRequest
             $privacy = $this->input('privacy');
             if (is_array($privacy)) {
                 foreach (array_keys($privacy) as $key) {
-                    if (! in_array($key, self::ALLOWED_PRIVACY_KEYS, true)) {
-                        $validator->errors()->add('privacy.'.$key, 'Unknown privacy setting.');
+                    if (!in_array($key, self::ALLOWED_PRIVACY_KEYS, true)) {
+                        $validator->errors()->add('privacy.' . $key, 'Unknown privacy setting.');
                     }
                 }
             }
@@ -124,7 +124,7 @@ class UpdateSettingsRequest extends FormRequest
     {
         return [
             'theme' => 'sometimes|string|in:light,dark,system',
-            'language' => 'sometimes|string|max:12',
+            'language' => 'sometimes|string|in:en,fr,ar',
             'notifications' => 'sometimes|array',
             'notifications.channels' => 'sometimes|array',
             'notifications.channels.in_app' => 'sometimes|boolean',
