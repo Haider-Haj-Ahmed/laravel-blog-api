@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\User;
+use App\Services\UserSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,11 +20,13 @@ class ProfileResource extends JsonResource
         /** @var User|null $viewer */
         $viewer = auth('sanctum')->user();
         $tags = $profile?->relationLoaded('tags') ? $profile->tags : ($profile ? $profile->tags()->get() : collect());
+        $settingsService = app(UserSettingsService::class);
+        $showEmail = $settingsService->showEmail($profile, $viewer);
 
         return [
             'username' => $this->username,
             'name' => $this->name,
-            'email' => $this->when($viewer && $viewer->id === $this->id, $this->email),
+            'email' => $this->when($showEmail, $this->email),
             'avatar_url' => $profile?->avatar ? asset("storage/avatars/{$profile->avatar}") : asset('images/default-avatar.png'),
             'bio' => $profile?->bio,
             'website' => $profile?->website,

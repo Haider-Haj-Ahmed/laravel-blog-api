@@ -10,6 +10,7 @@ use App\Models\Profile;
 use App\Models\User;
 use App\Services\BlockedUserService;
 use App\Services\RecommendationCacheService;
+use App\Services\UserSettingsService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -33,6 +34,11 @@ class ProfileController extends Controller
 
         $viewer = auth('sanctum')->user();
         if ($viewer && $this->blockedUserService->isBlockedEitherWay($viewer, $user->id)) {
+            return $this->notFoundResponse('User not found');
+        }
+
+        $settingsService = app(UserSettingsService::class);
+        if (! $settingsService->isProfileDiscoverable($user->profile, $viewer)) {
             return $this->notFoundResponse('User not found');
         }
 
@@ -85,12 +91,24 @@ class ProfileController extends Controller
             return $this->notFoundResponse('Profile not found');
         }
 
+        $viewer = auth('sanctum')->user();
+        $settingsService = app(UserSettingsService::class);
+        if (! $settingsService->isProfileDiscoverable($profile, $viewer)) {
+            return $this->notFoundResponse('Profile not found');
+        }
+
         return $this->successResponse($profile, 'Profile retrieved successfully');
     }
 
     public function index()
     {
-        $profiles = Profile::orderBy('created_at', 'desc')->paginate(10);
+        $profiles = Profile::where(function ($query) {
+            $query
+                ->whereNull('settings->privacy->profile_discoverable')
+                ->orWhere('settings->privacy->profile_discoverable', true);
+        })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
         return $this->paginatedResponse($profiles, 'Profiles retrieved successfully');
     }

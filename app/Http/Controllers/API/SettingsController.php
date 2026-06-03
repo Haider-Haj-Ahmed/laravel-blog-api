@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateSettingsRequest;
 use App\Models\Profile;
+use App\Services\UserSettingsService;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 
@@ -12,7 +13,7 @@ class SettingsController extends Controller
 {
     use ApiResponseTrait;
 
-    public function show(Request $request)
+    public function show(Request $request, UserSettingsService $settingsService)
     {
         $user = $request->user();
 
@@ -27,12 +28,18 @@ class SettingsController extends Controller
         $profile = $user->profile;
         $this->authorize('view', $profile);
 
+        $settings = $settingsService->mergeWithDefaults($profile->settings ?? []);
+        if (($profile->settings ?? []) !== $settings) {
+            $profile->settings = $settings;
+            $profile->save();
+        }
+
         return $this->successResponse([
-            'settings' => $profile->settings ?? [],
+            'settings' => $settings,
         ], 'Settings retrieved successfully');
     }
 
-    public function update(UpdateSettingsRequest $request)
+    public function update(UpdateSettingsRequest $request, UserSettingsService $settingsService)
     {
         $user = $request->user();
 
@@ -47,9 +54,8 @@ class SettingsController extends Controller
         $profile = $user->profile;
         $this->authorize('update', $profile);
 
-        $current = $profile->settings ?? [];
         $incoming = $request->validated();
-        $profile->settings = array_replace($current, $incoming);
+        $profile->settings = $settingsService->applyPatch($profile->settings ?? [], $incoming);
         $profile->save();
 
         return $this->successResponse([

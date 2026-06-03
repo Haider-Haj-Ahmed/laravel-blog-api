@@ -11,6 +11,7 @@ use App\Notifications\OtpNotification;
 use App\Notifications\UserFollowedNotification;
 use App\Services\BlockedUserService;
 use App\Services\RecommendationCacheService;
+use App\Services\UserSettingsService;
 use App\Traits\ApiResponseTrait;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
@@ -48,6 +49,11 @@ class UserController extends Controller
         }
 
         $user->load('profile');
+
+        $settingsService = app(UserSettingsService::class);
+        if (! $settingsService->isProfileDiscoverable($user->profile, $viewer)) {
+            return $this->notFoundResponse('User not found');
+        }
 
         return $this->successResponse(new UserSummaryResource($user), 'User retrieved successfully');
     }
@@ -350,6 +356,11 @@ class UserController extends Controller
             ]);
         }
 
+        $settingsService = app(UserSettingsService::class);
+        if (! $settingsService->allowFollows($targetUser->profile)) {
+            return $this->forbiddenResponse('This user does not accept follows.');
+        }
+
         $created = DB::transaction(function () use ($actor, $targetUser) {
             $inserted = DB::table('follows')->insertOrIgnore([
                 'follower_id' => $actor->id,
@@ -377,7 +388,9 @@ class UserController extends Controller
             ], 'Already following user');
         }
 
-        $targetUser->notify(new UserFollowedNotification($actor));
+        if ($settingsService->shouldNotify($targetUser, 'follows')) {
+            $targetUser->notify(new UserFollowedNotification($actor));
+        }
 
         $this->recommendationCacheService->bumpUserVersion($actor->id);
 
