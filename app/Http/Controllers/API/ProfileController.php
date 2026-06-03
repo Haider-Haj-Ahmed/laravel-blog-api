@@ -189,7 +189,7 @@ class ProfileController extends Controller
             ->with('user')
             ->with('tags')
             ->latest();
-        }else{
+        }else{ 
         $postsQuery = $user->posts()
             ->with('user')
             ->with('tags')
