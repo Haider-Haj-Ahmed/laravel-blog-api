@@ -117,6 +117,16 @@ class UserSettingsService
             unset($settings['notify_comments']);
         }
 
+        if (array_key_exists('email_notifications', $settings)) {
+            $settings['notifications']['channels']['email'] = (bool) $settings['email_notifications'];
+            unset($settings['email_notifications']);
+        }
+
+        if (array_key_exists('push_notifications', $settings)) {
+            $settings['notifications']['channels']['push'] = (bool) $settings['push_notifications'];
+            unset($settings['push_notifications']);
+        }
+
         if (array_key_exists('privacy_show_email', $settings)) {
             $settings['privacy']['show_email'] = (bool) $settings['privacy_show_email'];
             unset($settings['privacy_show_email']);
