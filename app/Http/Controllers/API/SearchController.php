@@ -42,13 +42,14 @@ class SearchController extends Controller
 
         $viewer = auth('sanctum')->user();
         $usersQuery->where(function ($q) use ($viewer) {
-            $q->whereHas('profile', function ($profileQuery) {
-                $profileQuery->where(function ($settingsQuery) {
-                    $settingsQuery
-                        ->whereNull('settings->privacy->profile_discoverable')
-                        ->orWhere('settings->privacy->profile_discoverable', true);
+            $q->whereDoesntHave('profile')
+                ->orWhereHas('profile', function ($profileQuery) {
+                    $profileQuery->where(function ($settingsQuery) {
+                        $settingsQuery
+                            ->whereNull('settings->privacy->profile_discoverable')
+                            ->orWhere('settings->privacy->profile_discoverable', true);
+                    });
                 });
-            });
 
             if ($viewer) {
                 $q->orWhere('users.id', $viewer->id);
