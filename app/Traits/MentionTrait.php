@@ -20,11 +20,7 @@ trait MentionTrait
             $comment->mentions()->sync($mentioned->pluck('id'));
             $usernames = array_diff($usernames, $oldUsernames);
             if(count($usernames)>0){
-            $newlyMentionedUsers = User::whereIn('username', $usernames)->get();
-            $settingsService = app(UserSettingsService::class);
-            foreach($newlyMentionedUsers as $user){
-                if (! $settingsService->shouldNotify($user, 'mentions')) {
-                    continue;
+            $newlyMentionedUsers = User::whereIn('username', $usernames)->with('profile')->get();
                 }
 
                 $user->notify(new MentionedInComment($comment));
