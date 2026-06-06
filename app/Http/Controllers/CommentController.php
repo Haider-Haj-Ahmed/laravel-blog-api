@@ -426,6 +426,7 @@ class CommentController extends Controller
         return $this->successResponse([
             'children' => CommentResource::collection(collect($allchildren)),
             'total_pages' => (int) ceil($allCount / $perPage),
+            'total_replyes' => $allCount,
         ], 'Child comments retrieved successfully');
     }
 

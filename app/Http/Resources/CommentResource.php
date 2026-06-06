@@ -36,6 +36,8 @@ class CommentResource extends JsonResource
             'user_id' =>$this->user_id,
             'post_id' => $this->post_id,
             'blog_id' => $this->blog_id,
+            'likes_count'=>$this->likes,
+            'dislikes_count'=>$this->dislikes,
             'is_modified' => (bool) ($this->is_modified ?? false),
             'is_highlighted' => (bool) ($this->is_highlighted ?? false),
             'is_liked_by_user' => $isLikedByUser,
@@ -46,6 +48,7 @@ class CommentResource extends JsonResource
                     return [
                         'id' => $user->id,
                         'username' => $user->username,
+                        'avatar_url' => $user->profile?->avatar ? asset("storage/avatars/{$user->profile->avatar}") : asset('images/default-avatar.png'),
                         'profile_url' => url("/api/users/{$user->username}")
                     ];
                 });
