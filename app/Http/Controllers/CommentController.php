@@ -13,6 +13,7 @@ use App\Models\Blog;
 use App\Models\Post;
 use App\Services\ActivityService;
 use App\Services\RecommendationCacheService;
+use App\Services\UserSettingsService;
 use App\Events\CommentLiked;
 use App\Events\CommentDisliked;
 use App\Events\CommentHighlighted;
@@ -605,6 +606,11 @@ class CommentController extends Controller
         $subjectOwner = $comment->post?->user ?? $comment->blog?->user;
 
         if (! $subjectOwner || $subjectOwner->id === $editor->id) {
+            return;
+        }
+
+        $settingsService = app(UserSettingsService::class);
+        if (! $settingsService->shouldNotify($subjectOwner, 'highlights')) {
             return;
         }
 

@@ -25,6 +25,14 @@ class ProfilePolicy
     }
 
     /**
+     * Determine whether the user can view their own settings.
+     */
+    public function viewSettings(User $user, Profile $profile): bool
+    {
+        return $user->id === $profile->user_id;
+    }
+
+    /**
      * Determine whether the user can create models.
      */
     public function create(User $user): bool

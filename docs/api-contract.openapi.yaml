@@ -1311,6 +1311,8 @@ paths:
                             type: string
         '401':
           $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
         '404':
           $ref: '#/components/responses/Error404'
         '422':
@@ -2612,15 +2614,56 @@ components:
         theme:
           type: string
           enum: [light, dark, system]
-        notify_likes:
-          type: boolean
-        notify_comments:
-          type: boolean
         language:
           type: string
           maxLength: 12
-        privacy_show_email:
-          type: boolean
+        notifications:
+          type: object
+          additionalProperties: false
+          properties:
+            channels:
+              type: object
+              additionalProperties: false
+              properties:
+                in_app:
+                  type: boolean
+                push:
+                  type: boolean
+                email:
+                  type: boolean
+            events:
+              type: object
+              additionalProperties: false
+              properties:
+                likes:
+                  type: boolean
+                comments:
+                  type: boolean
+                follows:
+                  type: boolean
+                mentions:
+                  type: boolean
+                highlights:
+                  type: boolean
+                verification:
+                  type: boolean
+                product_updates:
+                  type: boolean
+        privacy:
+          type: object
+          additionalProperties: false
+          properties:
+            show_email:
+              type: boolean
+            profile_discoverable:
+              type: boolean
+            allow_follows:
+              type: boolean
+            policy_accepted:
+              type: boolean
+            policy_version:
+              type: string
+              nullable: true
 
     UpdateSettingsRequest:
       allOf:

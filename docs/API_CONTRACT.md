@@ -370,6 +370,7 @@ Auth legend:
 - `GET /users/{username}/blogs` (`public`) -> paginated `Blog[]`
 - `POST /users/{username}/follow` (`auth`) -> `data.is_following`, `data.followers_count`
 - `DELETE /users/{username}/follow` (`auth`) -> same shape with `is_following=false`
+- `403`: user does not accept follows
 - `POST /users/{username}/block` (`auth`, throttle `block-actions`: 30/min) -> success message, no `data`
 - `DELETE /users/{username}/block` (`auth`, same throttle) -> success message, no `data`
 - `GET /show-me` (`auth`) -> `Profile`
@@ -385,7 +386,11 @@ Auth legend:
 
 - `GET /settings` (`auth`) -> `data.settings` (object; keys below)
 - `PATCH /settings` (`auth`)
-  - Body any of: `theme` (`light|dark|system`), `notify_likes` (boolean), `notify_comments` (boolean), `language` (string, max 12), `privacy_show_email` (boolean)
+  - Body any of: `theme` (`light|dark|system`), `language` (string, max 12), `notifications`, `privacy`
+  - `notifications.channels`: `in_app`, `push`, `email` (booleans)
+  - `notifications.events`: `likes`, `comments`, `follows`, `mentions`, `highlights`, `verification`, `product_updates` (booleans)
+  - `privacy`: `show_email`, `profile_discoverable`, `allow_follows`, `policy_accepted` (booleans), `policy_version` (string or null)
+  - Legacy keys still accepted: `notify_likes`, `notify_comments`, `privacy_show_email`
   - `200`: `data.settings` (merged with existing values)
 
 ## Moderation & safety

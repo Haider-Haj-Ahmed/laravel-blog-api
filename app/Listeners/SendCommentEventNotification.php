@@ -10,16 +10,30 @@ use App\Notifications\CommentDislikedNotification;
 use App\Notifications\CommentHighlightedNotification;
 use App\Notifications\CommentLikedNotification;
 use App\Notifications\CommentVerifiedNotification;
+use App\Services\UserSettingsService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class SendCommentEventNotification implements ShouldQueue
 {
+    public function __construct(private readonly UserSettingsService $settingsService) {}
+
     public function handle(CommentLiked|CommentDisliked|CommentHighlighted|CommentVerified $event): void
     {
         $commentOwner = $event->comment->user;
         $actor = $event->actor;
 
         if (! $commentOwner || ($actor && $commentOwner->id === $actor->id)) {
+            return;
+        }
+
+        $eventKey = match (true) {
+            $event instanceof CommentLiked => 'likes',
+            $event instanceof CommentDisliked => 'likes',
+            $event instanceof CommentHighlighted => 'highlights',
+            $event instanceof CommentVerified => 'verification',
+        };
+
+        if (! $this->settingsService->shouldNotify($commentOwner, $eventKey)) {
             return;
         }
 

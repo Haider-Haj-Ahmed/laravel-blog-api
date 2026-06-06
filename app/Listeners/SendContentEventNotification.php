@@ -10,10 +10,13 @@ use App\Notifications\BlogCommentedNotification;
 use App\Notifications\BlogLikedNotification;
 use App\Notifications\PostCommentedNotification;
 use App\Notifications\PostLikedNotification;
+use App\Services\UserSettingsService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class SendContentEventNotification implements ShouldQueue
 {
+    public function __construct(private readonly UserSettingsService $settingsService) {}
+
     public function handle(PostLiked|BlogLiked|PostCommented|BlogCommented $event): void
     {
         $owner = match (true) {
@@ -25,6 +28,17 @@ class SendContentEventNotification implements ShouldQueue
 
         $actor = $event->actor;
         if (! $owner || ($actor && $owner->id === $actor->id)) {
+            return;
+        }
+
+        $eventKey = match (true) {
+            $event instanceof PostLiked => 'likes',
+            $event instanceof BlogLiked => 'likes',
+            $event instanceof PostCommented => 'comments',
+            $event instanceof BlogCommented => 'comments',
+        };
+
+        if (! $this->settingsService->shouldNotify($owner, $eventKey)) {
             return;
         }
 
