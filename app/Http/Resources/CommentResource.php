@@ -42,13 +42,16 @@ class CommentResource extends JsonResource
             'is_highlighted' => (bool) ($this->is_highlighted ?? false),
             'is_liked_by_user' => $isLikedByUser,
             'is_disliked_by_user' => $isDislikedByUser,
-            'user_name'=> $this->whenLoaded('user', fn () => $this->user->username), 
+            'user_name'=> $this->whenLoaded('user', fn () => $this->user->username),
+            'avatar_url' => $this->whenLoaded('user', function () {
+                $user = $this->user;
+                return $user->profile?->avatar ? asset("storage/avatars/{$user->profile->avatar}") : asset('images/default-avatar.png');
+            }),
             'mentions' => $this->whenLoaded('mentions', function () {
                 return $this->mentions->map(function ($user) {
                     return [
                         'id' => $user->id,
                         'username' => $user->username,
-                        'avatar_url' => $user->profile?->avatar ? asset("storage/avatars/{$user->profile->avatar}") : asset('images/default-avatar.png'),
                         'profile_url' => url("/api/users/{$user->username}")
                     ];
                 });

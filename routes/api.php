@@ -103,7 +103,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Profile
     Route::get('/show-me', [ProfileController::class, 'showMe']);
-    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile', [ProfileController::class, 'update']);
     Route::get('/profiles/{profile}', [ProfileController::class, 'showViaId']);
     // some tags routes
     Route::post('/updatepost/tags/{post}', [TagController::class, 'updatePost']);
