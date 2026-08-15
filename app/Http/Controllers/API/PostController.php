@@ -80,7 +80,7 @@ class PostController extends Controller
             $perPage
         );
 
-        return $this->paginatedResponse(
+        return $this->successResponse(
             PostResource::collection($recommendedPosts),
             'Recommended posts retrieved successfully'
         );

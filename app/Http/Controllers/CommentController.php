@@ -63,6 +63,12 @@ class CommentController extends Controller
             return $this->successResponse([], 'No comments found for this post');
         }
 
+        $sortedComments = $comments->getCollection()->sortByDesc(function ($comment) {
+            return (bool) $comment->is_highlighted;
+        })->values();
+
+        $comments->setCollection($sortedComments);
+
         return $this->paginatedResponse(
             CommentResource::collection($comments),
             'Comments retrieved successfully'
