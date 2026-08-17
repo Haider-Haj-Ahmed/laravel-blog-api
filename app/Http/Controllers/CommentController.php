@@ -39,7 +39,7 @@ class CommentController extends Controller
         if (!$post) {
             return $this->notFoundResponse('this post is not found');
         }
-        if (!$post->is_published) {
+        if (!$post->is_published && $post->user_id != $request->user()->id) {
             return $this->unauthorizedResponse('you cannot access this post');
         }
         $highlighted = Activity::where('action', 'comment_highlighted')->where('subject_id', $postId)->where('subject_type', 'post')->latest()->first();
