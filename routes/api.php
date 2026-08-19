@@ -37,8 +37,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/change-password', [UserController::class, 'changePassword'])->middleware('throttle:5,10');
     Route::post('/change-name', [UserController::class, 'changeName'])->middleware('throttle:5,10');
 
-    Route::get('/settings', [SettingsController::class, 'show']);
-    Route::patch('/settings', [SettingsController::class, 'update']);
+    Route::get('/settings', [SettingsController::class, 'show'])->middleware('throttle:settings-read');
+    Route::patch('/settings', [SettingsController::class, 'update'])->middleware('throttle:settings-update');
 
     Route::get('/blocks', [BlockController::class, 'index']);
     Route::post('/users/{username}/block', [BlockController::class, 'store'])->middleware('throttle:block-actions');
