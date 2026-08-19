@@ -88,6 +88,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/blogs/{blog}/sections/{section}', [SectionController::class, 'update']);
     Route::delete('/blogs/{blog}/sections/{section}', [SectionController::class, 'destroy']);
     Route::apiResource('/blogs', BlogController::class);
+    Route::post('/updateblog/{blog}',[BlogController::class,'update']);
 
     // Following
     Route::post('/users/{username}/follow', [UserController::class, 'follow'])->middleware('throttle:follow-actions');
