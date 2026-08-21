@@ -1,0 +1,537 @@
+openapi: 3.0.3
+info:
+  title: TechTalk Settings API
+  version: 1.0.0
+  description: |
+    Frontend contract for authenticated user settings.
+
+    Source of truth in backend:
+    - `App\Http\Controllers\API\SettingsController`
+    - `App\Http\Requests\UpdateSettingsRequest`
+    - `App\Services\UserSettingsService`
+
+    Envelope:
+    - success: `{ status: "success", message, data }`
+    - error: `{ status: "error", message, errors? }`
+
+    Auth: Sanctum Bearer token (`Authorization: Bearer <token>`).
+
+    Rate limits (per user id, else IP):
+    - GET `/settings`: 30 requests / minute
+    - PATCH `/settings`: 10 requests / minute
+
+servers:
+  - url: /api
+    description: API base path
+
+tags:
+  - name: Settings
+    description: Authenticated user preference object stored on `profiles.settings`
+
+paths:
+  /settings:
+    get:
+      tags: [Settings]
+      operationId: getSettings
+      summary: Get authenticated user settings
+      description: |
+        Returns the full settings object after merging stored values with server defaults.
+
+        Side effects:
+        - If the user has no profile, one is created (`ranking_points: 0`).
+        - If stored settings are missing keys or contain legacy keys, the merged
+          canonical shape is persisted back to `profiles.settings`.
+
+        Always treat the response as the complete settings state for the UI.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsSuccessResponse'
+              examples:
+                defaults:
+                  summary: Fresh / default settings
+                  value:
+                    status: success
+                    message: Settings retrieved successfully
+                    data:
+                      settings:
+                        theme: system
+                        language: en
+                        notifications:
+                          channels:
+                            in_app: true
+                            push: false
+                            email: false
+                          events:
+                            likes: true
+                            comments: true
+                            follows: true
+                            mentions: true
+                            highlights: true
+                            verification: true
+                            product_updates: false
+                        privacy:
+                          show_email: false
+                          profile_discoverable: true
+                          allow_follows: true
+                          policy_accepted: false
+                          policy_version: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    patch:
+      tags: [Settings]
+      operationId: patchSettings
+      summary: Partially update authenticated user settings
+      description: |
+        Deep-merges the request body into existing settings (after defaults), then saves.
+
+        Merge order:
+        1. server defaults
+        2. current stored settings (legacy-normalized)
+        3. incoming patch body (legacy-normalized)
+
+        Rules:
+        - Send only keys you want to change (partial PATCH).
+        - Nested objects are merged recursively; omitted siblings are preserved.
+        - Unknown top-level or nested keys are rejected with `422`.
+        - Do **not** send settings via `PUT /profile` — that field is prohibited there.
+
+        Preferred shape is the nested canonical object. A few legacy flat keys are
+        still accepted and normalized (see `UpdateSettingsRequest`).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+            examples:
+              themeOnly:
+                summary: Change theme only
+                value:
+                  theme: dark
+              nestedNotificationEvent:
+                summary: Disable likes notifications
+                value:
+                  notifications:
+                    events:
+                      likes: false
+              privacyAndLanguage:
+                summary: Privacy + language
+                value:
+                  language: ar
+                  privacy:
+                    show_email: true
+                    profile_discoverable: false
+              policyAcceptance:
+                summary: Accept policy version
+                value:
+                  privacy:
+                    policy_accepted: true
+                    policy_version: "2026-03-01"
+              legacyKeys:
+                summary: Legacy flat keys (still accepted)
+                value:
+                  notify_likes: false
+                  notify_comments: true
+                  privacy_show_email: true
+      responses:
+        '200':
+          description: Settings updated successfully (full merged object returned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsSuccessResponse'
+              examples:
+                patchedTheme:
+                  summary: After theme patch
+                  value:
+                    status: success
+                    message: Settings updated successfully
+                    data:
+                      settings:
+                        theme: dark
+                        language: en
+                        notifications:
+                          channels:
+                            in_app: true
+                            push: false
+                            email: false
+                          events:
+                            likes: true
+                            comments: true
+                            follows: true
+                            mentions: true
+                            highlights: true
+                            verification: true
+                            product_updates: false
+                        privacy:
+                          show_email: false
+                          profile_discoverable: true
+                          allow_follows: true
+                          policy_accepted: false
+                          policy_version: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Sanctum token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            message: Unauthorized Unauthenticated.
+
+    Forbidden:
+      description: Authenticated but not allowed to access this profile's settings
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            message: Forbidden This action is unauthorized.
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            message: Too many requests
+
+    ValidationError:
+      description: |
+        Invalid or unknown settings keys/values.
+        API exception handler always sets `message` to `Validation failed`;
+        field details live under `errors`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            invalidTheme:
+              summary: Invalid theme enum
+              value:
+                status: error
+                message: Validation failed
+                errors:
+                  theme:
+                    - The selected theme is invalid.
+            unknownKey:
+              summary: Unknown top-level key
+              value:
+                status: error
+                message: Validation failed
+                errors:
+                  evil_key:
+                    - Unknown setting.
+            unknownNested:
+              summary: Unknown nested notification event
+              value:
+                status: error
+                message: Validation failed
+                errors:
+                  notifications.events.foobar:
+                    - Unknown notification event.
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [status, message, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorEnvelope:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    SettingsSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [settings]
+              properties:
+                settings:
+                  $ref: '#/components/schemas/SettingsObject'
+
+    SettingsObject:
+      type: object
+      description: |
+        Canonical persisted settings shape. GET always returns this full object
+        (defaults filled). PATCH responses also return the full merged object.
+      additionalProperties: false
+      required:
+        - theme
+        - language
+        - notifications
+        - privacy
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+          default: system
+          description: UI theme preference.
+        language:
+          type: string
+          enum: [en, fr, ar]
+          default: en
+          description: UI / content language preference.
+        notifications:
+          $ref: '#/components/schemas/NotificationsSettings'
+        privacy:
+          $ref: '#/components/schemas/PrivacySettings'
+
+    NotificationsSettings:
+      type: object
+      additionalProperties: false
+      required: [channels, events]
+      properties:
+        channels:
+          type: object
+          additionalProperties: false
+          required: [in_app, push, email]
+          properties:
+            in_app:
+              type: boolean
+              default: true
+              description: |
+                Master switch currently enforced by the backend for creating
+                in-app notifications. If `false`, event toggles are ignored for
+                delivery (`shouldNotify` requires this channel).
+            push:
+              type: boolean
+              default: false
+              description: |
+                Stored preference for push delivery. Persist it in UI; server-side
+                push delivery is not yet applied inside `shouldNotify`.
+            email:
+              type: boolean
+              default: false
+              description: |
+                Stored preference for email delivery. Persist it in UI; server-side
+                email delivery is not yet applied inside `shouldNotify`.
+        events:
+          type: object
+          additionalProperties: false
+          required:
+            - likes
+            - comments
+            - follows
+            - mentions
+            - highlights
+            - verification
+            - product_updates
+          properties:
+            likes:
+              type: boolean
+              default: true
+            comments:
+              type: boolean
+              default: true
+            follows:
+              type: boolean
+              default: true
+            mentions:
+              type: boolean
+              default: true
+            highlights:
+              type: boolean
+              default: true
+            verification:
+              type: boolean
+              default: true
+            product_updates:
+              type: boolean
+              default: false
+
+    PrivacySettings:
+      type: object
+      additionalProperties: false
+      required:
+        - show_email
+        - profile_discoverable
+        - allow_follows
+        - policy_accepted
+        - policy_version
+      properties:
+        show_email:
+          type: boolean
+          default: false
+          description: |
+            When `false`, other users do not receive `email` on profile payloads.
+            The owner always sees their own email.
+        profile_discoverable:
+          type: boolean
+          default: true
+          description: |
+            When `false`, the profile is hidden from public discovery/search for
+            other users. The owner can still view their own profile.
+        allow_follows:
+          type: boolean
+          default: true
+          description: |
+            When `false`, `POST /users/{username}/follow` returns `403`
+            with message `This user does not accept follows.`
+        policy_accepted:
+          type: boolean
+          default: false
+          description: Whether the user accepted the current product policy/ToS.
+        policy_version:
+          type: string
+          nullable: true
+          maxLength: 40
+          default: null
+          description: Identifier/version string of the accepted policy document.
+
+    UpdateSettingsRequest:
+      type: object
+      description: |
+        Partial patch body. All properties optional. Unknown keys rejected.
+        Prefer nested canonical keys. Legacy flat keys below are still accepted.
+      additionalProperties: false
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+        language:
+          type: string
+          enum: [en, fr, ar]
+        notifications:
+          type: object
+          additionalProperties: false
+          properties:
+            channels:
+              type: object
+              additionalProperties: false
+              properties:
+                in_app:
+                  type: boolean
+                push:
+                  type: boolean
+                email:
+                  type: boolean
+            events:
+              type: object
+              additionalProperties: false
+              properties:
+                likes:
+                  type: boolean
+                comments:
+                  type: boolean
+                follows:
+                  type: boolean
+                mentions:
+                  type: boolean
+                highlights:
+                  type: boolean
+                verification:
+                  type: boolean
+                product_updates:
+                  type: boolean
+        privacy:
+          type: object
+          additionalProperties: false
+          properties:
+            show_email:
+              type: boolean
+            profile_discoverable:
+              type: boolean
+            allow_follows:
+              type: boolean
+            policy_accepted:
+              type: boolean
+            policy_version:
+              type: string
+              nullable: true
+              maxLength: 40
+        # Legacy flat keys (normalized server-side; prefer nested form above)
+        notify_likes:
+          type: boolean
+          deprecated: true
+          description: Maps to `notifications.events.likes`
+        notify_comments:
+          type: boolean
+          deprecated: true
+          description: Maps to `notifications.events.comments`
+        privacy_show_email:
+          type: boolean
+          deprecated: true
+          description: Maps to `privacy.show_email`
+
+    SettingsDefaults:
+      description: Exact server defaults from `UserSettingsService::DEFAULTS`
+      allOf:
+        - $ref: '#/components/schemas/SettingsObject'
+      example:
+        theme: system
+        language: en
+        notifications:
+          channels:
+            in_app: true
+            push: false
+            email: false
+          events:
+            likes: true
+            comments: true
+            follows: true
+            mentions: true
+            highlights: true
+            verification: true
+            product_updates: false
+        privacy:
+          show_email: false
+          profile_discoverable: true
+          allow_follows: true
+          policy_accepted: false
+          policy_version: null
