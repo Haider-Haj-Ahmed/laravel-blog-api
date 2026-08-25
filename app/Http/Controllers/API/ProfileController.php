@@ -136,6 +136,12 @@ class ProfileController extends Controller
         ]);
 
         $profile = $user->profile;
+        if (! $profile) {
+            $profile = Profile::create([
+                'user_id' => $user->id,
+                'ranking_points' => 0,
+            ]);
+        }
 
         $this->authorize('update', $profile);
 
@@ -168,15 +174,38 @@ class ProfileController extends Controller
         } else {
             unset($validated['cover_image']); // Don't update cover if not provided
         }
-        // need testing
+        $tagSyncChanges = [
+            'attached' => [],
+            'detached' => [],
+            'updated' => [],
+        ];
+
         if (array_key_exists('tags', $validated)) {
-            $profile->tags()->sync($validated['tags'] ?? []);
+            $tagSyncChanges = $profile->tags()->sync($validated['tags'] ?? []);
             unset($validated['tags']);
             $recommendationCacheService->bumpUserVersion($request->user()->id);
 
         }
+
         $profile->fill($validated);
-        $profile->save();
+
+        $hasProfileChanges = $profile->isDirty();
+        $hasTagChanges =
+            ! empty($tagSyncChanges['attached']) ||
+            ! empty($tagSyncChanges['detached']) ||
+            ! empty($tagSyncChanges['updated']);
+
+        if (! $hasProfileChanges && ! $hasTagChanges) {
+            return $this->validationErrorResponse([
+                'profile' => [
+                    'No changes were detected. Send at least one changed field (bio, website, location, social_links, tags, avatar, or cover_image).',
+                ],
+            ], 'No changes detected');
+        }
+
+        if ($hasProfileChanges) {
+            $profile->save();
+        }
 
         $user->load([
             'profile.tags',
@@ -202,13 +231,11 @@ class ProfileController extends Controller
         }
 
         $viewerId = auth('sanctum')->id();
-
         $postsQuery = $user->posts()
             ->with('user')
             ->with('tags')
             ->where('is_published', true)
             ->latest();
-
         if ($viewerId) {
             $postsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),
@@ -240,12 +267,11 @@ class ProfileController extends Controller
         }
 
         $viewerId = auth('sanctum')->id();
-
         $blogsQuery = $user->blogs()
             ->with('user')
+            ->with('tags')
             ->where('is_published', true)
             ->latest();
-
         if ($viewerId) {
             $blogsQuery->withExists([
                 'views as is_viewed' => fn ($query) => $query->where('user_id', $viewerId),

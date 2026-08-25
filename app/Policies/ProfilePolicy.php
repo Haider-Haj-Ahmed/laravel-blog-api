@@ -29,7 +29,7 @@ class ProfilePolicy
      */
     public function viewSettings(User $user, Profile $profile): bool
     {
-        return $user->id === $profile->user_id;
+        return $user->id == $profile->user_id;
     }
 
     /**

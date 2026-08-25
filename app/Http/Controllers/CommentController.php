@@ -40,7 +40,7 @@ class CommentController extends Controller
         if (!$post) {
             return $this->notFoundResponse('this post is not found');
         }
-        if (!$post->is_published) {
+        if (!$post->is_published && $post->user_id != $request->user()->id) {
             return $this->unauthorizedResponse('you cannot access this post');
         }
         $highlighted = Activity::where('action', 'comment_highlighted')->where('subject_id', $postId)->where('subject_type', 'post')->latest()->first();
@@ -63,6 +63,12 @@ class CommentController extends Controller
         if ($comments->isEmpty()) {
             return $this->successResponse([], 'No comments found for this post');
         }
+
+        $sortedComments = $comments->getCollection()->sortByDesc(function ($comment) {
+            return (bool) $comment->is_highlighted;
+        })->values();
+
+        $comments->setCollection($sortedComments);
 
         return $this->paginatedResponse(
             CommentResource::collection($comments),
@@ -427,6 +433,7 @@ class CommentController extends Controller
         return $this->successResponse([
             'children' => CommentResource::collection(collect($allchildren)),
             'total_pages' => (int) ceil($allCount / $perPage),
+            'total_replyes' => $allCount,
         ], 'Child comments retrieved successfully');
     }
 

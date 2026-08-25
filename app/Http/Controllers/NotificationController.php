@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponseTrait;
+use App\Traits\AuthorizesRequests;
 
 class NotificationController extends Controller
 {
-    use ApiResponseTrait;
+    use ApiResponseTrait,AuthorizesRequests;
     // عرض كل الإشعارات للمستخدم
     public function index(Request $request)
     {
@@ -28,9 +29,12 @@ class NotificationController extends Controller
     }
 
     // تعليم إشعار واحد كمقروء
-    public function markAsRead(Request $request, $id)
+    public function markAsRead(Request $request)
     {
-        $notification = $request->user()->notifications()->whereKey($id)->first();
+        $atts=$request->validate([
+            'id' => 'required|uuid',
+        ]);
+        $notification = $request->user()->notifications()->whereKey($atts['id'])->first();
 
         if (! $notification) {
             return $this->notFoundResponse('Notification not found');

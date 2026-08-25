@@ -76,7 +76,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
-    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::get('/activity', [ActivityController::class, 'index']);
 
@@ -88,6 +88,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/blogs/{blog}/sections/{section}', [SectionController::class, 'update']);
     Route::delete('/blogs/{blog}/sections/{section}', [SectionController::class, 'destroy']);
     Route::apiResource('/blogs', BlogController::class);
+    Route::post('/updateblog/{blog}',[BlogController::class,'update']);
 
     // Following
     Route::post('/users/{username}/follow', [UserController::class, 'follow'])->middleware('throttle:follow-actions');
@@ -103,7 +104,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Profile
     Route::get('/show-me', [ProfileController::class, 'showMe']);
-    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile', [ProfileController::class, 'update']);
     Route::get('/profiles/{profile}', [ProfileController::class, 'showViaId']);
     // some tags routes
     Route::post('/updatepost/tags/{post}', [TagController::class, 'updatePost']);

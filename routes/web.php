@@ -17,4 +17,11 @@ Route::get('/trigger-event', function () {
 
     return 'Event triggered!';
 });
+
+Route::get('/reset-password/{token}', function (string $token) {
+    return view('auth.reset-password', [
+        'token' => $token,
+        'email' => request('email', ''),
+    ]);
+})->name('password.reset');
 // Route::post('login', [AuthController::class, 'login']);

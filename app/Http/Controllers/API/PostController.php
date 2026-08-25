@@ -80,7 +80,7 @@ class PostController extends Controller
             $perPage
         );
 
-        return $this->paginatedResponse(
+        return $this->successResponse(
             PostResource::collection($recommendedPosts),
             'Recommended posts retrieved successfully'
         );
@@ -105,7 +105,7 @@ class PostController extends Controller
 
         // Load relationships and counts for consistency
         $post->load(['user', 'photos']);
-
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         return $this->createdResponse(
             new PostResource($post),
             'Post created successfully'
@@ -175,6 +175,7 @@ class PostController extends Controller
             $isPublished
         );
 
+        $this->recommendationCacheService->bumpUserVersion($request->user()->id);
         return $this->returnUpdatedPostResponse($postOrResponse, 'Post content updated successfully');
     }
 

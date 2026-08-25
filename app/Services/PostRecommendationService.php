@@ -351,7 +351,6 @@ class PostRecommendationService
         $query = Post::query()
             ->where('is_published', true)
             ->whereIn('user_id', $followedIds)
-            ->where('user_id', '!=', $user->id)
             ->when($blockedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('user_id', $blockedIds))
             ->when($seenPostIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $seenPostIds))
             ->with(['user', 'photos', 'tags'])
@@ -380,7 +379,7 @@ class PostRecommendationService
     ): Collection {
         $blockedIds ??= collect();
 
-        $blockedAuthorIds = $followedIds->push($user->id)->merge($blockedIds)->unique();
+        $blockedAuthorIds = $followedIds->merge($blockedIds)->unique();
 
         $query = Post::query()
             ->where('is_published', true)
@@ -409,7 +408,7 @@ class PostRecommendationService
         ?Collection $blockedIds = null,
     ): Collection {
         $blockedIds ??= collect();
-        $excludeAuthorIds = $blockedIds->merge([$user->id])->unique()->values();
+        $excludeAuthorIds = $blockedIds->values();
 
         $windowDays = (int) config('recommendation.trending.window_days', 7);
         $weights = config('recommendation.trending.weights', []);

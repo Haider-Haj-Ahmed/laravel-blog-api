@@ -36,11 +36,17 @@ class CommentResource extends JsonResource
             'user_id' =>$this->user_id,
             'post_id' => $this->post_id,
             'blog_id' => $this->blog_id,
+            'likes_count'=>$this->likes,
+            'dislikes_count'=>$this->dislikes,
             'is_modified' => (bool) ($this->is_modified ?? false),
             'is_highlighted' => (bool) ($this->is_highlighted ?? false),
             'is_liked_by_user' => $isLikedByUser,
             'is_disliked_by_user' => $isDislikedByUser,
-            'user_name'=> $this->whenLoaded('user', fn () => $this->user->username), 
+            'user_name'=> $this->whenLoaded('user', fn () => $this->user->username),
+            'avatar_url' => $this->whenLoaded('user', function () {
+                $user = $this->user;
+                return $user->profile?->avatar ? asset("storage/avatars/{$user->profile->avatar}") : asset('images/default-avatar.png');
+            }),
             'mentions' => $this->whenLoaded('mentions', function () {
                 return $this->mentions->map(function ($user) {
                     return [
