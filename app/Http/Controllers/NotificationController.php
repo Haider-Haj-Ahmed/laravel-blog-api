@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 use App\Traits\ApiResponseTrait;
 use App\Traits\AuthorizesRequests;
 

@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Blog;
+use App\Models\Post;
 use App\Models\User;
 use App\Models\View;
+use App\Notifications\PostLikedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Str;
@@ -64,14 +66,12 @@ class IntegrationGuardsAndContractsTest extends TestCase
     public function test_mark_notification_as_read_still_marks_owned_notification(): void
     {
         $user = User::factory()->create();
+        $actor = User::factory()->create();
+        $post = Post::factory()->create(['user_id' => $user->id]);
 
-        $notification = DatabaseNotification::query()->create([
-            'id' => (string) Str::uuid(),
-            'type' => 'Tests\\Notifications\\DummyNotification',
-            'notifiable_type' => User::class,
-            'notifiable_id' => $user->id,
-            'data' => ['message' => 'hello'],
-        ]);
+        $user->notify(new PostLikedNotification($post, $actor));
+
+        $notification = DatabaseNotification::query()->latest()->first();
 
         Sanctum::actingAs($user);
 
